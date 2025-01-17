@@ -1,5 +1,5 @@
 import { AzureOpenAI } from "openai";
-import { OpenAIAdapter } from "./openai_adapter";
+import { OpenAIAdapter } from "@/openai_adapter";
 
 export class AzureOpenAIAdapter extends OpenAIAdapter<AzureOpenAI> {
   constructor(
