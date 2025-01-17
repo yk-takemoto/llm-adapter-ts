@@ -4,6 +4,7 @@ import commonjs from "@rollup/plugin-commonjs";
 
 const external = [
   "fs",
+  "zod",
   "@anthropic-ai/sdk",
   "@google/generative-ai",
   "groq-sdk",
@@ -12,6 +13,7 @@ const external = [
 
 const globals = {
   "fs": "fs",
+  "zod": "zod",
   "@anthropic-ai/sdk": "Anthropic",
   "@google/generative-ai": "GenerativeAI",
   "groq-sdk": "GroqSDK",
