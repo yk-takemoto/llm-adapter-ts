@@ -42,44 +42,33 @@ export class GeminiAdapter implements LlmAdapter {
     if (typeof schema !== "object" || schema === null) {
       return schema;
     }
-
-    return Object.entries(schema).reduce((acc, [key, value]) => {
-      if (key === "$schema" || key === "additionalProperties") {
-        return acc;
-      }
-
-      if (typeof value !== "object" || value === null) {
-        return { ...acc, [key]: value };
-      }
-
-      if (value.type === "object" && value.properties) {
-        return {
-          ...acc,
-          [key]: {
-            ...value,
-            properties: Object.entries(value.properties).reduce(
-              (props, [propKey, propValue]) => ({
-                ...props,
-                [propKey]: this.cleanJsonSchema(propValue as Record<string, any>),
+    if (schema.type === "object") {
+      const cleanedSchema: Record<string, any> = {};
+      Object.keys(schema).forEach((key) => {
+        if (key !== "additionalProperties" && key !== "$schema") {
+          if (key === "properties") {
+            cleanedSchema.properties = Object.keys(schema.properties).reduce(
+              (acc, propKey) => ({
+                ...acc,
+                [propKey]: this.cleanJsonSchema(schema.properties[propKey]),
               }),
               {},
-            ),
-          },
-        };
-      }
-
-      if (value.type === "array" && value.items) {
-        return {
-          ...acc,
-          [key]: {
-            ...value,
-            items: this.cleanJsonSchema(value.items as Record<string, any>),
-          },
-        };
-      }
-
-      return { ...acc, [key]: value };
-    }, {});
+            );
+          } else {
+            cleanedSchema[key] = schema[key];
+          }
+        }
+      });
+      return cleanedSchema;
+    }
+    if (schema.type === "array" && schema.items) {
+      const { items, ...rest } = schema;
+      return {
+        ...rest,
+        items: this.cleanJsonSchema(items),
+      };
+    }
+    return schema;
   }
 
   private convertTools(tools: McpTool[]): Tool[] {
