@@ -12,6 +12,7 @@ export declare class GeminiAdapter implements LlmAdapter {
         apiModelChat: string;
     });
     private initCheck;
+    private cleanJsonSchema;
     private convertTools;
     private convertResponseFormatJSONSchema;
     private convertImageUrlToBase64;

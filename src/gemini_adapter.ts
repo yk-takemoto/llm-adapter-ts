@@ -37,12 +37,57 @@ export class GeminiAdapter implements LlmAdapter {
     }
   }
 
+  // A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
+  private cleanJsonSchema(schema: Record<string, any>): Record<string, any> {
+    if (typeof schema !== "object" || schema === null) {
+      return schema;
+    }
+
+    return Object.entries(schema).reduce((acc, [key, value]) => {
+      if (key === "$schema" || key === "additionalProperties") {
+        return acc;
+      }
+
+      if (typeof value !== "object" || value === null) {
+        return { ...acc, [key]: value };
+      }
+
+      if (value.type === "object" && value.properties) {
+        return {
+          ...acc,
+          [key]: {
+            ...value,
+            properties: Object.entries(value.properties).reduce(
+              (props, [propKey, propValue]) => ({
+                ...props,
+                [propKey]: this.cleanJsonSchema(propValue as Record<string, any>),
+              }),
+              {},
+            ),
+          },
+        };
+      }
+
+      if (value.type === "array" && value.items) {
+        return {
+          ...acc,
+          [key]: {
+            ...value,
+            items: this.cleanJsonSchema(value.items as Record<string, any>),
+          },
+        };
+      }
+
+      return { ...acc, [key]: value };
+    }, {});
+  }
+
   private convertTools(tools: McpTool[]): Tool[] {
     const functions = tools.map((tool) => {
       return {
         name: tool.name,
         description: tool.description,
-        parameters: tool.inputSchema,
+        parameters: this.cleanJsonSchema(tool.inputSchema),
       } as FunctionDeclaration;
     });
     return [{ functionDeclarations: functions }];
