@@ -79,13 +79,15 @@ export class GeminiAdapter implements LlmAdapter {
         parameters: this.cleanJsonSchema(tool.inputSchema),
       } as FunctionDeclaration;
     });
+    // debug
+    console.log("[convertTools] functions: ", JSON.stringify(functions, null, 2));
     return [{ functionDeclarations: functions }];
   }
 
   private convertResponseFormatJSONSchema(tool: McpTool): GenerationConfig {
     return {
       responseMimeType: "application/json",
-      responseSchema: tool.inputSchema as ResponseSchema,
+      responseSchema: this.cleanJsonSchema(tool.inputSchema) as ResponseSchema,
     };
   }
 
