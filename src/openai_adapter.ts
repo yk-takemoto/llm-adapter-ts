@@ -78,7 +78,7 @@ export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
 
   async chatCompletions(
     systemPrompt: string[],
-    firstMessageContents: LlmChatCompletionsContent[],
+    newMessageContents: LlmChatCompletionsContent[],
     options: LlmChatCompletionsOptions,
     inProgress?: {
       messages: OpenAI.ChatCompletionMessageParam[];
@@ -106,9 +106,11 @@ export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
           content: msg,
         });
       });
+    }
+    if (newMessageContents.length > 0) {
       updatedMessages.push({
         role: "user",
-        content: firstMessageContents.map((content) => {
+        content: newMessageContents.map((content) => {
           return content.image
             ? {
                 type: "image_url",

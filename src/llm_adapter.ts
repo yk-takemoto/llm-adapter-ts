@@ -3,7 +3,7 @@ import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletion
 export interface LlmAdapter {
   chatCompletions(
     systemPrompt: string[],
-    firstMessageContents: LlmChatCompletionsContent[],
+    newMessageContents: LlmChatCompletionsContent[],
     options: LlmChatCompletionsOptions,
     inProgress?: {
       messages: any[];

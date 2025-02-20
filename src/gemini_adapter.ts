@@ -117,7 +117,7 @@ export class GeminiAdapter implements LlmAdapter {
 
   async chatCompletions(
     systemPrompt: string[],
-    firstMessageContents: LlmChatCompletionsContent[],
+    newMessageContents: LlmChatCompletionsContent[],
     options: LlmChatCompletionsOptions,
     inProgress?: {
       messages: Content[];
@@ -143,9 +143,10 @@ export class GeminiAdapter implements LlmAdapter {
           return { text: toolResult.content };
         }) || [];
       updatedMessages = inProgress.messages.concat({ role: "user", parts: resParts });
-    } else {
+    }
+    if (newMessageContents.length > 0) {
       const resParts = await Promise.all(
-        firstMessageContents.map(async (content) => {
+        newMessageContents.map(async (content) => {
           if (content.image) {
             const { mimeType, base64Content } = await this.convertImageUrlToBase64(content.image.url);
             return {

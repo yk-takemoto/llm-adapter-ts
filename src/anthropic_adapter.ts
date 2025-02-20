@@ -64,7 +64,7 @@ export class AnthropicAdapter implements LlmAdapter {
 
   async chatCompletions(
     systemPrompt: string[],
-    firstMessageContents: LlmChatCompletionsContent[],
+    newMessageContents: LlmChatCompletionsContent[],
     options: LlmChatCompletionsOptions,
     inProgress?: {
       messages: Anthropic.MessageParam[];
@@ -92,9 +92,10 @@ export class AnthropicAdapter implements LlmAdapter {
           } as Anthropic.ToolResultBlockParam;
         }) || [];
       updatedMessages = inProgress.messages.concat({ role: "user", content: resMessages });
-    } else {
+    }
+    if (newMessageContents.length > 0) {
       const list = await Promise.all(
-        firstMessageContents.map(async (content) => {
+        newMessageContents.map(async (content) => {
           if (content.image) {
             const { mimeType, base64Content } = await this.convertImageUrlToBase64(content.image.url);
             return {

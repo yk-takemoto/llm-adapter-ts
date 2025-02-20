@@ -39,7 +39,7 @@ export class GroqAdapter implements LlmAdapter {
 
   async chatCompletions(
     systemPrompt: string[],
-    firstMessageContents: LlmChatCompletionsContent[],
+    newMessageContents: LlmChatCompletionsContent[],
     options: LlmChatCompletionsOptions,
     inProgress?: {
       messages: Groq.Chat.ChatCompletionMessageParam[];
@@ -63,7 +63,7 @@ export class GroqAdapter implements LlmAdapter {
     } else {
       // Solutions to the following issues:
       // "prompting with images is incompatible with system messages"
-      const hasImage = firstMessageContents.some((content) => content.image);
+      const hasImage = newMessageContents.some((content) => content.image);
       if (hasImage) {
         updatedMessages.push({
           role: "user",
@@ -82,10 +82,11 @@ export class GroqAdapter implements LlmAdapter {
           });
         });
       }
-
+    }
+    if (newMessageContents.length > 0) {
       updatedMessages.push({
         role: "user",
-        content: firstMessageContents.map((content) => {
+        content: newMessageContents.map((content) => {
           return content.image
             ? {
                 type: "image_url",
