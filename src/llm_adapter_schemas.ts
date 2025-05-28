@@ -37,7 +37,7 @@ export const llmChatCompletionsOptionsSchema = z.object({
     type: z.enum(["function", "function_strict", "response_format"]).optional(),
   }),
 });
-// .catchall(z.any());
+.catchall(z.any());
 
 export const llmTextToSpeechResponseSchema = z.object({
   contentType: z.string(),
