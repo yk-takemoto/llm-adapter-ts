@@ -1,27 +1,25 @@
 import { promises as fs } from "fs";
 import { Groq } from "groq-sdk";
+import { z } from "zod";
 import { LlmAdapter } from "@/llm_adapter";
 import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
 
 export class GroqAdapter implements LlmAdapter {
+  protected llmConfig;
   protected groqClient;
 
   constructor(
-    protected llmConfig = {
-      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GROQ_API_KEY || process.env.GROQ_API_KEY || "",
-      apiModelChat: process.env.GROQ_API_MODEL_CHAT!,
+    llmConfig = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GROQ_API_KEY || process.env.GROQ_API_KEY,
+      apiModelChat: process.env.GROQ_API_MODEL_CHAT,
     },
+    llmConfigSchema = z.object({
+      apiKey: z.string().min(1, "GROQ_API_KEY is required"),
+      apiModelChat: z.string().min(1, "GROQ_API_MODEL_CHAT is required"),
+    }),
   ) {
-    this.initCheck(llmConfig);
+    this.llmConfig = llmConfigSchema.parse(llmConfig);
     this.groqClient = new Groq({ apiKey: llmConfig.apiKey });
-  }
-
-  private initCheck(llmConfig: Record<string, string>) {
-    for (const key of Object.keys(this.llmConfig)) {
-      if (!llmConfig[key]) {
-        throw new Error(`llmConfig.${key} is required but not set.`);
-      }
-    }
   }
 
   private convertTools(tools: McpTool[]): Groq.Chat.ChatCompletionTool[] {
@@ -107,14 +105,14 @@ export class GroqAdapter implements LlmAdapter {
     let resFormatOption = {};
     if (options.tools && options.tools.length > 0) {
       toolsOption =
-        options.purposeOfTools === "function"
+        options.toolOption.type === "function" || options.toolOption.type === "function_strict"
           ? {
               tools: this.convertTools(options.tools),
-              tool_choice: options.toolChoice || ("auto" as Groq.Chat.ChatCompletionToolChoiceOption),
+              tool_choice: options.toolOption.choice || ("auto" as Groq.Chat.ChatCompletionToolChoiceOption),
             }
           : {};
       resFormatOption =
-        options.purposeOfTools === "response_format"
+        options.toolOption.type === "response_format"
           ? {
               response_format: {
                 type: "json_object",
@@ -126,8 +124,8 @@ export class GroqAdapter implements LlmAdapter {
     const chatOtions = {
       model: this.llmConfig.apiModelChat,
       messages: updatedMessages,
-      max_tokens: (options.maxTokens as number) || 1028,
-      temperature: (options.temperature as number) ?? 0.7,
+      max_tokens: (options.toolOption.maxTokens as number) || 1028,
+      temperature: (options.toolOption.temperature as number) ?? 0.7,
       ...toolsOption,
       ...resFormatOption,
     };

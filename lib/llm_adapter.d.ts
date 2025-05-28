@@ -1,6 +1,6 @@
 import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse } from "./llm_adapter_schemas";
 export interface LlmAdapter {
-    chatCompletions(systemPrompt: string[], firstMessageContents: LlmChatCompletionsContent[], options: LlmChatCompletionsOptions, inProgress?: {
+    chatCompletions(systemPrompt: string[], newMessageContents: LlmChatCompletionsContent[], options: LlmChatCompletionsOptions, inProgress?: {
         messages: any[];
         toolResults?: {
             id: string;

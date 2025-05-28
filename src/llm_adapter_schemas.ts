@@ -28,13 +28,16 @@ export const llmChatCompletionsContentSchema = z.object({
     .optional(),
 });
 
-export const llmChatCompletionsOptionsSchema = z
-  .object({
-    tools: z.array(z.any()).optional(),
-    toolChoice: z.any().optional(),
-    purposeOfTools: z.enum(["function", "response_format"]).optional(),
-  })
-  .catchall(z.any());
+export const llmChatCompletionsOptionsSchema = z.object({
+  tools: z.array(z.any()).optional(),
+  toolOption: z.object({
+    choice: z.any().optional(),
+    maxTokens: z.number().optional(),
+    temperature: z.number().optional(),
+    type: z.enum(["function", "function_strict", "response_format"]).optional(),
+  }),
+});
+// .catchall(z.any());
 
 export const llmTextToSpeechResponseSchema = z.object({
   contentType: z.string(),

@@ -1,27 +1,25 @@
 import { promises as fs } from "fs";
+import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { LlmAdapter } from "@/llm_adapter";
 import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
 
 export class AnthropicAdapter implements LlmAdapter {
+  protected llmConfig;
   protected anthropicClient;
 
   constructor(
-    protected llmConfig = {
-      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "",
-      apiModelChat: process.env.ANTHROPIC_API_MODEL_CHAT!,
+    llmConfig = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
+      apiModelChat: process.env.ANTHROPIC_API_MODEL_CHAT,
     },
+    llmConfigSchema = z.object({
+      apiKey: z.string().min(1, "ANTHROPIC_API_KEY is required"),
+      apiModelChat: z.string().min(1, "ANTHROPIC_API_MODEL_CHAT is required"),
+    }),
   ) {
-    this.initCheck(llmConfig);
+    this.llmConfig = llmConfigSchema.parse(llmConfig);
     this.anthropicClient = new Anthropic({ apiKey: llmConfig.apiKey });
-  }
-
-  private initCheck(llmConfig: Record<string, string>) {
-    for (const key of Object.keys(this.llmConfig)) {
-      if (!llmConfig[key]) {
-        throw new Error(`llmConfig.${key} is required but not set.`);
-      }
-    }
   }
 
   private convertTools(tools: McpTool[]): Anthropic.Tool[] {
@@ -124,7 +122,7 @@ export class AnthropicAdapter implements LlmAdapter {
       options.tools && options.tools.length > 0
         ? {
             tools: this.convertTools(options.tools),
-            tool_choice: { type: options.toolChoice || "auto" } as Anthropic.ToolChoice,
+            tool_choice: { type: options.toolOption.choice || "auto" } as Anthropic.ToolChoice,
           }
         : {};
 
@@ -132,8 +130,8 @@ export class AnthropicAdapter implements LlmAdapter {
       model: this.llmConfig.apiModelChat,
       messages: updatedMessages,
       system: covertedSystemPrompt,
-      max_tokens: (options.maxTokens as number) || 1028,
-      temperature: (options.temperature as number) ?? 0.7,
+      max_tokens: (options.toolOption.maxTokens as number) || 1028,
+      temperature: (options.toolOption.temperature as number) ?? 0.7,
       ...toolsOption,
     };
     let response: LlmChatCompletionsResponse = {
@@ -180,7 +178,7 @@ export class AnthropicAdapter implements LlmAdapter {
 
       response = {
         text:
-          resTools.length > 0 && options.purposeOfTools === "response_format"
+          resTools.length > 0 && options.toolOption.type === "response_format"
             ? JSON.stringify(resTools[0].arguments)
             : (contents[0] as Anthropic.TextBlock).text || null,
         tools: resTools,

@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import { z } from "zod";
 import {
   GoogleGenerativeAI,
   HarmBlockThreshold,
@@ -17,24 +18,21 @@ import { LlmAdapter } from "@/llm_adapter";
 import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
 
 export class GeminiAdapter implements LlmAdapter {
+  protected llmConfig;
   protected geminiClient;
 
   constructor(
-    protected llmConfig = {
-      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
-      apiModelChat: process.env.GEMINI_API_MODEL_CHAT!,
+    llmConfig = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+      apiModelChat: process.env.GEMINI_API_MODEL_CHAT,
     },
+    llmConfigSchema = z.object({
+      apiKey: z.string().min(1, "GEMINI_API_KEY is required"),
+      apiModelChat: z.string().min(1, "GEMINI_API_MODEL_CHAT is required"),
+    }),
   ) {
-    this.initCheck(llmConfig);
+    this.llmConfig = llmConfigSchema.parse(llmConfig);
     this.geminiClient = new GoogleGenerativeAI(llmConfig.apiKey);
-  }
-
-  private initCheck(llmConfig: Record<string, string>) {
-    for (const key of Object.keys(this.llmConfig)) {
-      if (!llmConfig[key]) {
-        throw new Error(`llmConfig.${key} is required but not set.`);
-      }
-    }
   }
 
   // A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
@@ -167,17 +165,17 @@ export class GeminiAdapter implements LlmAdapter {
     let resFormatOption = {};
     if (options.tools && options.tools.length > 0) {
       toolsOption =
-        options.purposeOfTools === "function"
+        options.toolOption.type === "function" || options.toolOption.type === "function_strict"
           ? {
               tools: this.convertTools(options.tools),
               toolConfig: {
                 functionCallingConfig: {
-                  mode: (String(options.toolChoice).toUpperCase() as FunctionCallingMode) || FunctionCallingMode.AUTO,
+                  mode: (String(options.toolOption.choice).toUpperCase() as FunctionCallingMode) || FunctionCallingMode.AUTO,
                 },
               },
             }
           : {};
-      resFormatOption = options.purposeOfTools === "response_format" ? this.convertResponseFormatJSONSchema(options.tools[0]) : {};
+      resFormatOption = options.toolOption.type === "response_format" ? this.convertResponseFormatJSONSchema(options.tools[0]) : {};
     }
 
     const modelParams: ModelParams = {
@@ -188,8 +186,8 @@ export class GeminiAdapter implements LlmAdapter {
         },
       ],
       generationConfig: {
-        maxOutputTokens: (options.maxTokens as number) || 1028,
-        temperature: (options.temperature as number) ?? 0.7,
+        maxOutputTokens: (options.toolOption.maxTokens as number) || 1028,
+        temperature: (options.toolOption.temperature as number) ?? 0.7,
         ...resFormatOption,
       },
       model: this.llmConfig.apiModelChat,

@@ -1,25 +1,40 @@
 import OpenAI from "openai";
+import { z } from "zod";
 import { LlmAdapter } from "./llm_adapter";
 import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse } from "./llm_adapter_schemas";
 export declare class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
     protected llmConfig: {
-        apiKey: any;
+        apiKey: string;
         apiModelChat: string;
-        apiModelAudioTranscription: string;
-        apiModelText2Speech: string;
+        apiModelAudioTranscription?: string | undefined;
+        apiModelText2Speech?: string | undefined;
     };
     protected openaiClient: OpenAI;
     constructor(llmConfig?: {
         apiKey: any;
+        apiModelChat: string | undefined;
+        apiModelAudioTranscription: string | undefined;
+        apiModelText2Speech: string | undefined;
+    }, llmConfigSchema?: z.ZodObject<{
+        apiKey: z.ZodString;
+        apiModelChat: z.ZodString;
+        apiModelAudioTranscription: z.ZodOptional<z.ZodString>;
+        apiModelText2Speech: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        apiKey: string;
         apiModelChat: string;
-        apiModelAudioTranscription: string;
-        apiModelText2Speech: string;
-    }, apiClient?: T);
-    private initCheck;
+        apiModelAudioTranscription?: string | undefined;
+        apiModelText2Speech?: string | undefined;
+    }, {
+        apiKey: string;
+        apiModelChat: string;
+        apiModelAudioTranscription?: string | undefined;
+        apiModelText2Speech?: string | undefined;
+    }>, apiClient?: T);
     private addAdditionalPropertiesElementToObjectType;
     private convertTools;
     private convertResponseFormatJSONSchema;
-    chatCompletions(systemPrompt: string[], firstMessageContents: LlmChatCompletionsContent[], options: LlmChatCompletionsOptions, inProgress?: {
+    chatCompletions(systemPrompt: string[], newMessageContents: LlmChatCompletionsContent[], options: LlmChatCompletionsOptions, inProgress?: {
         messages: OpenAI.ChatCompletionMessageParam[];
         toolResults?: {
             id: string;

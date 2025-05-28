@@ -1,30 +1,30 @@
 import OpenAI from "openai";
 import { createReadStream } from "fs";
+import { z } from "zod";
 import { LlmAdapter } from "@/llm_adapter";
 import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
 
 export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
+  protected llmConfig;
   protected openaiClient;
 
   constructor(
-    protected llmConfig = {
-      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").OPENAI_API_KEY || process.env.OPENAI_API_KEY || "",
-      apiModelChat: process.env.OPENAI_API_MODEL_CHAT!,
-      apiModelAudioTranscription: process.env.OPENAI_API_MODEL_AUDIO_TRANSCRIPTION!,
-      apiModelText2Speech: process.env.OPENAI_API_MODEL_TEXT2SPEECH!,
+    llmConfig = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+      apiModelChat: process.env.OPENAI_API_MODEL_CHAT,
+      apiModelAudioTranscription: process.env.OPENAI_API_MODEL_AUDIO_TRANSCRIPTION,
+      apiModelText2Speech: process.env.OPENAI_API_MODEL_TEXT2SPEECH,
     },
+    llmConfigSchema = z.object({
+      apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
+      apiModelChat: z.string().min(1, "OPENAI_API_MODEL_CHAT is required"),
+      apiModelAudioTranscription: z.string().optional(),
+      apiModelText2Speech: z.string().optional(),
+    }),
     apiClient?: T,
   ) {
-    this.initCheck(llmConfig);
+    this.llmConfig = llmConfigSchema.parse(llmConfig);
     this.openaiClient = apiClient || new OpenAI({ apiKey: llmConfig.apiKey });
-  }
-
-  private initCheck(llmConfig: Record<string, string>) {
-    for (const key of Object.keys(this.llmConfig)) {
-      if (!llmConfig[key]) {
-        throw new Error(`llmConfig.${key} is required but not set.`);
-      }
-    }
   }
 
   private addAdditionalPropertiesElementToObjectType(schema: any, bool: boolean = false) {
@@ -139,14 +139,14 @@ export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
     let resFormatOption = {};
     if (options.tools && options.tools.length > 0) {
       toolsOption =
-        options.purposeOfTools === "function"
+        options.toolOption.type === "function" || options.toolOption.type === "function_strict"
           ? {
-              tools: this.convertTools(options.tools, true),
-              tool_choice: options.toolChoice || ("auto" as OpenAI.ChatCompletionToolChoiceOption),
+              tools: this.convertTools(options.tools, options.toolOption.type === "function_strict"),
+              tool_choice: options.toolOption.choice || ("auto" as OpenAI.ChatCompletionToolChoiceOption),
             }
           : {};
       resFormatOption =
-        options.purposeOfTools === "response_format"
+        options.toolOption.type === "response_format"
           ? {
               response_format: this.convertResponseFormatJSONSchema(options.tools[0]),
             }
@@ -156,8 +156,8 @@ export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
     const chatOtions = {
       model: this.llmConfig.apiModelChat,
       messages: updatedMessages,
-      max_tokens: (options.maxTokens as number) || 1028,
-      temperature: (options.temperature as number) ?? 0.7,
+      max_tokens: (options.toolOption.maxTokens as number) || 1028,
+      temperature: (options.toolOption.temperature as number) ?? 0.7,
       ...toolsOption,
       ...resFormatOption,
     };
@@ -209,7 +209,7 @@ export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
   async speechToText(audioFilePath: string, options?: Record<string, any>): Promise<string> {
     const speechOtions = {
       file: createReadStream(audioFilePath),
-      model: this.llmConfig.apiModelAudioTranscription,
+      model: this.llmConfig.apiModelAudioTranscription || "whisper-1",
       language: options?.language || "ja",
     };
     try {

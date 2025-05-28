@@ -77,17 +77,39 @@ export declare const llmChatCompletionsContentSchema: z.ZodObject<{
 }>;
 export declare const llmChatCompletionsOptionsSchema: z.ZodObject<{
     tools: z.ZodOptional<z.ZodArray<z.ZodAny, "many">>;
-    toolChoice: z.ZodOptional<z.ZodAny>;
-    purposeOfTools: z.ZodOptional<z.ZodEnum<["function", "response_format"]>>;
-}, "strip", z.ZodAny, z.objectOutputType<{
-    tools: z.ZodOptional<z.ZodArray<z.ZodAny, "many">>;
-    toolChoice: z.ZodOptional<z.ZodAny>;
-    purposeOfTools: z.ZodOptional<z.ZodEnum<["function", "response_format"]>>;
-}, z.ZodAny, "strip">, z.objectInputType<{
-    tools: z.ZodOptional<z.ZodArray<z.ZodAny, "many">>;
-    toolChoice: z.ZodOptional<z.ZodAny>;
-    purposeOfTools: z.ZodOptional<z.ZodEnum<["function", "response_format"]>>;
-}, z.ZodAny, "strip">>;
+    toolOption: z.ZodObject<{
+        choice: z.ZodOptional<z.ZodAny>;
+        maxTokens: z.ZodOptional<z.ZodNumber>;
+        temperature: z.ZodOptional<z.ZodNumber>;
+        type: z.ZodOptional<z.ZodEnum<["function", "function_strict", "response_format"]>>;
+    }, "strip", z.ZodTypeAny, {
+        type?: "function" | "function_strict" | "response_format" | undefined;
+        choice?: any;
+        maxTokens?: number | undefined;
+        temperature?: number | undefined;
+    }, {
+        type?: "function" | "function_strict" | "response_format" | undefined;
+        choice?: any;
+        maxTokens?: number | undefined;
+        temperature?: number | undefined;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    toolOption: {
+        type?: "function" | "function_strict" | "response_format" | undefined;
+        choice?: any;
+        maxTokens?: number | undefined;
+        temperature?: number | undefined;
+    };
+    tools?: any[] | undefined;
+}, {
+    toolOption: {
+        type?: "function" | "function_strict" | "response_format" | undefined;
+        choice?: any;
+        maxTokens?: number | undefined;
+        temperature?: number | undefined;
+    };
+    tools?: any[] | undefined;
+}>;
 export declare const llmTextToSpeechResponseSchema: z.ZodObject<{
     contentType: z.ZodString;
     content: z.ZodType<Buffer<ArrayBuffer>, z.ZodTypeDef, Buffer<ArrayBuffer>>;
