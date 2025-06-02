@@ -1,77 +1,73 @@
-import { promises as fs } from "fs";
-import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { LlmAdapter } from "@/llm_adapter";
-import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
+import { z } from "zod";
+import { McpTool, LlmClientBuilder, LlmAdapter, chatCompletionsArgumentsSchema } from "@/llm_adapter_schemas";
 
-export class AnthropicAdapter implements LlmAdapter {
-  protected llmConfig;
-  protected anthropicClient;
+const convertTools = (tools: McpTool[]): Anthropic.Tool[] => {
+  return tools.map((tool) => {
+    return {
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema as Anthropic.Tool.InputSchema,
+    };
+  });
+};
 
-  constructor(
-    llmConfig = {
+const convertImageUrlToBase64 = async (
+  imageUrl: string,
+): Promise<{
+  mimeType: string;
+  base64Content: string;
+}> => {
+  try {
+    const response = await fetch(imageUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const mimeType = response.headers.get("content-type") || "image/jpeg";
+    const base64Content = buffer.toString("base64");
+    return { mimeType, base64Content };
+  } catch (error) {
+    throw new Error(`Failed to fetch or convert image: ${error}`);
+  }
+};
+
+const convertMessagesForHistory = (messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] => {
+  return messages.map((message) => ({
+    role: message.role,
+    content: Array.isArray(message.content)
+      ? message.content.map((item) => (item.type === "image" ? ({ ...item, source: { ...item.source, data: "ommitted" } } as Anthropic.ImageBlockParam) : item))
+      : message.content,
+  }));
+};
+
+const anthropicClientBuilder: LlmClientBuilder<Anthropic> = {
+  build: ({
+    config = {
       apiKey: JSON.parse(process.env.APP_SECRETS || "{}").ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
+    },
+    configSchema = z.object({
+      apiKey: z.string().min(1, "ANTHROPIC_API_KEY is required"),
+    }),
+  } = {}) => {
+    const { apiKey } = configSchema.parse(config || {});
+    return new Anthropic({ apiKey });
+  },
+};
+
+const anthropicAdapter: LlmAdapter = {
+  chatCompletions: async ({
+    args,
+    argsSchema = chatCompletionsArgumentsSchema,
+    config = {
       apiModelChat: process.env.ANTHROPIC_API_MODEL_CHAT,
     },
-    llmConfigSchema = z.object({
-      apiKey: z.string().min(1, "ANTHROPIC_API_KEY is required"),
+    configSchema = z.object({
       apiModelChat: z.string().min(1, "ANTHROPIC_API_MODEL_CHAT is required"),
     }),
-  ) {
-    this.llmConfig = llmConfigSchema.parse(llmConfig);
-    this.anthropicClient = new Anthropic({ apiKey: llmConfig.apiKey });
-  }
+  } = {}) => {
+    const { systemPrompt, newMessageContents, options, inProgress } = argsSchema.parse(args);
+    const { apiModelChat } = configSchema.parse(config || {});
 
-  private convertTools(tools: McpTool[]): Anthropic.Tool[] {
-    return tools.map((tool) => {
-      return {
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.inputSchema as Anthropic.Tool.InputSchema,
-      };
-    });
-  }
-
-  private async convertImageUrlToBase64(imageUrl: string): Promise<{
-    mimeType: string;
-    base64Content: string;
-  }> {
-    try {
-      const response = await fetch(imageUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      const mimeType = response.headers.get("content-type") || "image/jpeg";
-      const base64Content = buffer.toString("base64");
-      return { mimeType, base64Content };
-    } catch (error) {
-      throw new Error(`Failed to fetch or convert image: ${error}`);
-    }
-  }
-
-  private convertMessagesForHistory(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-    return messages.map((message) => ({
-      role: message.role,
-      content: Array.isArray(message.content)
-        ? message.content.map((item) =>
-            item.type === "image" ? ({ ...item, source: { ...item.source, data: "ommitted" } } as Anthropic.ImageBlockParam) : item,
-          )
-        : message.content,
-    }));
-  }
-
-  async chatCompletions(
-    systemPrompt: string[],
-    newMessageContents: LlmChatCompletionsContent[],
-    options: LlmChatCompletionsOptions,
-    inProgress?: {
-      messages: Anthropic.MessageParam[];
-      toolResults?: {
-        id: string;
-        content: string;
-      }[];
-    },
-  ): Promise<LlmChatCompletionsResponse> {
     const covertedSystemPrompt: Anthropic.TextBlockParam[] = [];
     systemPrompt.forEach((msg) => {
       covertedSystemPrompt.push({
@@ -95,7 +91,7 @@ export class AnthropicAdapter implements LlmAdapter {
       const list = await Promise.all(
         newMessageContents.map(async (content) => {
           if (content.image) {
-            const { mimeType, base64Content } = await this.convertImageUrlToBase64(content.image.url);
+            const { mimeType, base64Content } = await convertImageUrlToBase64(content.image.url);
             return {
               type: "image",
               source: {
@@ -121,27 +117,23 @@ export class AnthropicAdapter implements LlmAdapter {
     const toolsOption =
       options.tools && options.tools.length > 0
         ? {
-            tools: this.convertTools(options.tools),
+            tools: convertTools(options.tools),
             tool_choice: { type: options.toolOption.choice || "auto" } as Anthropic.ToolChoice,
           }
         : {};
 
     const chatOtions: Anthropic.MessageCreateParams = {
-      model: this.llmConfig.apiModelChat,
+      model: apiModelChat,
       messages: updatedMessages,
       system: covertedSystemPrompt,
-      max_tokens: (options.toolOption.maxTokens as number) || 1028,
-      temperature: (options.toolOption.temperature as number) ?? 0.7,
+      max_tokens: options.toolOption.maxTokens || 1028,
+      temperature: options.toolOption.temperature ?? 0.7,
       ...toolsOption,
     };
-    let response: LlmChatCompletionsResponse = {
-      text: "",
-      tools: [],
-      messages: [],
-    };
+    let response;
     try {
       // For history
-      const historyMessages = this.convertMessagesForHistory(updatedMessages);
+      const historyMessages = convertMessagesForHistory(updatedMessages);
 
       // debug
       console.log(
@@ -150,7 +142,8 @@ export class AnthropicAdapter implements LlmAdapter {
         " -- historyMessages: ",
         JSON.stringify(historyMessages),
       );
-      const chatResponse = await this.anthropicClient.messages.create(chatOtions);
+      const anthropicClient = anthropicClientBuilder.build();
+      const chatResponse = await anthropicClient.messages.create(chatOtions);
       const contents = chatResponse.content;
       const stopReason = chatResponse.stop_reason;
       // debug
@@ -193,33 +186,7 @@ export class AnthropicAdapter implements LlmAdapter {
     // debug
     console.log("[chatCompletions] response: ", response);
     return response;
-  }
+  },
+};
 
-  async speechToText(__: string, ___?: Record<string, any>): Promise<string> {
-    //================ Not supported
-    try {
-      return "unsupported";
-    } catch (error) {
-      // debug
-      console.log("[speechToText] Error: ", error);
-      throw error;
-    }
-  }
-
-  async textToSpeech(_: string, options?: Record<string, any>): Promise<LlmTextToSpeechResponse> {
-    //================ Not supported
-    try {
-      const sorryFormat = options?.responseFormat === "wav" || options?.responseFormat === "aac" ? options.responseFormat : "mp3";
-      const sorry = await fs.readFile(`audio/sorry.ja.${sorryFormat}`);
-      const contentType = sorryFormat === "mp3" ? "audio/mpeg" : `audio/${sorryFormat}`;
-      return {
-        contentType: contentType,
-        content: sorry,
-      };
-    } catch (error) {
-      // debug
-      console.log("[textToSpeech] Error: ", error);
-      throw error;
-    }
-  }
-}
+export default anthropicAdapter;

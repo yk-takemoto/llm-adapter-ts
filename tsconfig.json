@@ -9,5 +9,5 @@
       "~/*": ["./tests/*"],
     }
   },
-  "include": ["src"]
+  "include": ["src"],
 }

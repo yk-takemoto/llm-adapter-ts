@@ -1,246 +1,291 @@
-import OpenAI from "openai";
+import OpenAI, { AzureOpenAI } from "openai";
 import { createReadStream } from "fs";
 import { z } from "zod";
-import { LlmAdapter } from "@/llm_adapter";
-import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
+import {
+  McpTool,
+  LlmAdapterBuilder,
+  LlmClientBuilder,
+  chatCompletionsArgumentsSchema,
+  speechToTextArgumentsSchema,
+  textToSpeechArgumentsSchema,
+} from "@/llm_adapter_schemas";
 
-export class OpenAIAdapter<T extends OpenAI> implements LlmAdapter {
-  protected llmConfig;
-  protected openaiClient;
-
-  constructor(
-    llmConfig = {
-      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-      apiModelChat: process.env.OPENAI_API_MODEL_CHAT,
-      apiModelAudioTranscription: process.env.OPENAI_API_MODEL_AUDIO_TRANSCRIPTION,
-      apiModelText2Speech: process.env.OPENAI_API_MODEL_TEXT2SPEECH,
-    },
-    llmConfigSchema = z.object({
-      apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
-      apiModelChat: z.string().min(1, "OPENAI_API_MODEL_CHAT is required"),
-      apiModelAudioTranscription: z.string().optional(),
-      apiModelText2Speech: z.string().optional(),
-    }),
-    apiClient?: T,
-  ) {
-    this.llmConfig = llmConfigSchema.parse(llmConfig);
-    this.openaiClient = apiClient || new OpenAI({ apiKey: llmConfig.apiKey });
-  }
-
-  private addAdditionalPropertiesElementToObjectType(schema: any, bool: boolean = false) {
-    if (typeof schema !== "object" || schema === null) {
-      return schema;
-    }
-    if (schema.type === "object") {
-      schema.additionalProperties = bool;
-      if (schema.properties) {
-        for (const key in schema.properties) {
-          schema.properties[key] = this.addAdditionalPropertiesElementToObjectType(schema.properties[key], bool);
-        }
-      }
-    }
-    if (schema.type === "array" && schema.items) {
-      schema.items = this.addAdditionalPropertiesElementToObjectType(schema.items, bool);
-    }
+const addAdditionalPropertiesElementToObjectType = (schema: any, bool: boolean = false) => {
+  if (typeof schema !== "object" || schema === null) {
     return schema;
   }
-
-  private convertTools(tools: McpTool[], isStrict?: boolean): OpenAI.ChatCompletionTool[] {
-    const strict = isStrict
-      ? {
-          strict: isStrict,
-        }
-      : {};
-    return tools.map((tool) => {
-      return {
-        type: "function",
-        function: {
-          name: tool.name,
-          description: tool.description,
-          ...strict,
-          parameters: isStrict ? this.addAdditionalPropertiesElementToObjectType(tool.inputSchema, !isStrict) : tool.inputSchema,
-        },
-      };
-    });
+  if (schema.type === "object") {
+    schema.additionalProperties = bool;
+    if (schema.properties) {
+      for (const key in schema.properties) {
+        schema.properties[key] = addAdditionalPropertiesElementToObjectType(schema.properties[key], bool);
+      }
+    }
   }
+  if (schema.type === "array" && schema.items) {
+    schema.items = addAdditionalPropertiesElementToObjectType(schema.items, bool);
+  }
+  return schema;
+};
 
-  private convertResponseFormatJSONSchema(tool: McpTool): OpenAI.ResponseFormatJSONSchema {
+const convertTools = (tools: McpTool[], isStrict?: boolean): OpenAI.ChatCompletionTool[] => {
+  const strict = isStrict
+    ? {
+        strict: isStrict,
+      }
+    : {};
+  return tools.map((tool) => {
     return {
-      type: "json_schema",
-      json_schema: {
+      type: "function",
+      function: {
         name: tool.name,
         description: tool.description,
-        strict: true,
-        schema: this.addAdditionalPropertiesElementToObjectType(tool.inputSchema, false),
+        ...strict,
+        parameters: isStrict ? addAdditionalPropertiesElementToObjectType(tool.inputSchema, !isStrict) : tool.inputSchema,
       },
     };
-  }
+  });
+};
 
-  async chatCompletions(
-    systemPrompt: string[],
-    newMessageContents: LlmChatCompletionsContent[],
-    options: LlmChatCompletionsOptions,
-    inProgress?: {
-      messages: OpenAI.ChatCompletionMessageParam[];
-      toolResults?: {
-        id: string;
-        content: string;
-      }[];
+const convertResponseFormatJSONSchema = (tool: McpTool): OpenAI.ResponseFormatJSONSchema => {
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: tool.name,
+      description: tool.description,
+      strict: true,
+      schema: addAdditionalPropertiesElementToObjectType(tool.inputSchema, false),
     },
-  ): Promise<LlmChatCompletionsResponse> {
-    let updatedMessages: OpenAI.ChatCompletionMessageParam[] = [];
-    if (inProgress) {
-      const resMessages =
-        inProgress.toolResults?.map((toolResult) => {
-          return {
-            tool_call_id: toolResult.id,
-            role: "tool",
-            content: toolResult.content,
-          } as OpenAI.ChatCompletionMessageParam;
-        }) || [];
-      updatedMessages = inProgress.messages.concat(resMessages);
-    } else {
-      systemPrompt.forEach((msg) => {
-        updatedMessages.push({
-          role: "system",
-          content: msg,
+  };
+};
+
+const openAIClientBuilder: LlmClientBuilder<OpenAI> = {
+  build: ({
+    config = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+    },
+    configSchema = z.object({
+      apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
+    }),
+  } = {}) => {
+    const { apiKey } = configSchema.parse(config || {});
+    return new OpenAI({ apiKey });
+  },
+};
+
+const azureOpenAIClientBuilder: LlmClientBuilder<AzureOpenAI> = {
+  build: ({
+    config = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY,
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiVersion: process.env.OPENAI_API_VERSION,
+    },
+    configSchema = z.object({
+      apiKey: z.string().min(1, "AZURE_OPENAI_API_KEY is required"),
+      endpoint: z.string().min(1, "AZURE_OPENAI_ENDPOINT is required"),
+      apiVersion: z.string().min(1, "OPENAI_API_VERSION is required"),
+    }),
+  } = {}) => {
+    const { apiKey, endpoint, apiVersion } = configSchema.parse(config || {});
+    return new AzureOpenAI({ apiKey, endpoint, apiVersion });
+  },
+};
+
+export const openAIAdapterBuilder: LlmAdapterBuilder = {
+  build: ({ args: builderArgs = "OpenAI", argsSchema: builderArgsSchema = z.enum(["OpenAI", "AzureOpenAI"]) } = {}) => ({
+    chatCompletions: async ({
+      args,
+      argsSchema = chatCompletionsArgumentsSchema,
+      config = {
+        apiModelChat: builderArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_CHAT : process.env.OPENAI_API_MODEL_CHAT,
+      },
+      configSchema = z.object({
+        apiModelChat: z.string().min(1, "OPENAI_API_MODEL_CHAT or AZURE_OPENAI_API_DEPLOYMENT_CHAT is required"),
+      }),
+    } = {}) => {
+      const llmId = builderArgsSchema.parse(builderArgs);
+      const { systemPrompt, newMessageContents, options, inProgress } = argsSchema.parse(args);
+      const { apiModelChat } = configSchema.parse(config || {});
+
+      let updatedMessages: OpenAI.ChatCompletionMessageParam[] = [];
+      if (inProgress) {
+        const resMessages =
+          inProgress.toolResults?.map((toolResult) => {
+            return {
+              tool_call_id: toolResult.id,
+              role: "tool",
+              content: toolResult.content,
+            } as OpenAI.ChatCompletionMessageParam;
+          }) || [];
+        updatedMessages = inProgress.messages.concat(resMessages);
+      } else {
+        systemPrompt.forEach((msg) => {
+          updatedMessages.push({
+            role: "system",
+            content: msg,
+          });
         });
-      });
-    }
-    if (newMessageContents.length > 0) {
-      updatedMessages.push({
-        role: "user",
-        content: newMessageContents.map((content) => {
-          return content.image
-            ? {
-                type: "image_url",
-                image_url: {
-                  url: content.image.url,
-                  detail: content.image.detail || "auto",
-                },
-              }
-            : content.audio
+      }
+      if (newMessageContents.length > 0) {
+        updatedMessages.push({
+          role: "user",
+          content: newMessageContents.map((content) => {
+            return content.image
               ? {
-                  type: "input_audio",
-                  input_audio: {
-                    data: content.audio.data,
-                    format: content.audio.format || "mp3",
+                  type: "image_url",
+                  image_url: {
+                    url: content.image.url,
+                    detail: content.image.detail || "auto",
                   },
                 }
-              : {
-                  type: "text",
-                  text: content.text || "",
-                };
-        }),
-      });
-    }
-
-    let toolsOption = {};
-    let resFormatOption = {};
-    if (options.tools && options.tools.length > 0) {
-      toolsOption =
-        options.toolOption.type === "function" || options.toolOption.type === "function_strict"
-          ? {
-              tools: this.convertTools(options.tools, options.toolOption.type === "function_strict"),
-              tool_choice: options.toolOption.choice || ("auto" as OpenAI.ChatCompletionToolChoiceOption),
-            }
-          : {};
-      resFormatOption =
-        options.toolOption.type === "response_format"
-          ? {
-              response_format: this.convertResponseFormatJSONSchema(options.tools[0]),
-            }
-          : {};
-    }
-
-    const chatOtions = {
-      model: this.llmConfig.apiModelChat,
-      messages: updatedMessages,
-      max_tokens: (options.toolOption.maxTokens as number) || 1028,
-      temperature: (options.toolOption.temperature as number) ?? 0.7,
-      ...toolsOption,
-      ...resFormatOption,
-    };
-    let response: LlmChatCompletionsResponse = {
-      text: "",
-      tools: [],
-      messages: [],
-    };
-    try {
-      // debug
-      console.log("[chatCompletions] start -- updatedMessages: ", JSON.stringify(updatedMessages));
-      const chatResponse = await this.openaiClient.chat.completions.create(chatOtions);
-      const choice = chatResponse.choices[0];
-      const finishReason = choice.finish_reason;
-      // debug
-      console.log(`[chatCompletions] end -- choices[0].message: ${JSON.stringify(choice.message)} finishReason: ${finishReason}`);
-
-      let resTools: { id: string; name: string; arguments: Record<string, any> }[] = [];
-      if (choice.message) {
-        updatedMessages.push(choice.message);
-        resTools =
-          finishReason === "tool_calls"
-            ? choice.message.tool_calls?.map((tool_call) => {
-                return {
-                  id: tool_call.id,
-                  name: tool_call.function.name,
-                  arguments: JSON.parse(tool_call.function.arguments) as Record<string, any>,
-                };
-              }) || []
-            : [];
+              : content.audio
+                ? {
+                    type: "input_audio",
+                    input_audio: {
+                      data: content.audio.data,
+                      format: content.audio.format || "mp3",
+                    },
+                  }
+                : {
+                    type: "text",
+                    text: content.text || "",
+                  };
+          }),
+        });
       }
 
-      response = {
-        text: choice.message?.content,
-        tools: resTools,
+      let toolsOption = {};
+      let resFormatOption = {};
+      if (options.tools && options.tools.length > 0) {
+        toolsOption =
+          options.toolOption.type === "function" || options.toolOption.type === "function_strict"
+            ? {
+                tools: convertTools(options.tools, options.toolOption.type === "function_strict"),
+                tool_choice: options.toolOption.choice || ("auto" as OpenAI.ChatCompletionToolChoiceOption),
+              }
+            : {};
+        resFormatOption =
+          options.toolOption.type === "response_format"
+            ? {
+                response_format: convertResponseFormatJSONSchema(options.tools[0]),
+              }
+            : {};
+      }
+
+      const chatOtions = {
+        model: apiModelChat,
         messages: updatedMessages,
+        max_tokens: options.toolOption.maxTokens || 1028,
+        temperature: options.toolOption.temperature ?? 0.7,
+        ...toolsOption,
+        ...resFormatOption,
       };
-    } catch (error) {
+
+      let response;
+      try {
+        // debug
+        console.log("[chatCompletions] start -- updatedMessages: ", JSON.stringify(updatedMessages));
+        const openaiClient = llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build() : openAIClientBuilder.build();
+        const chatResponse = await openaiClient.chat.completions.create(chatOtions);
+        const choice = chatResponse.choices[0];
+        const finishReason = choice.finish_reason;
+        // debug
+        console.log(`[chatCompletions] end -- choices[0].message: ${JSON.stringify(choice.message)} finishReason: ${finishReason}`);
+
+        let resTools: { id: string; name: string; arguments: Record<string, any> }[] = [];
+        if (choice.message) {
+          updatedMessages.push(choice.message);
+          resTools =
+            finishReason === "tool_calls"
+              ? choice.message.tool_calls?.map((tool_call) => {
+                  return {
+                    id: tool_call.id,
+                    name: tool_call.function.name,
+                    arguments: JSON.parse(tool_call.function.arguments) as Record<string, any>,
+                  };
+                }) || []
+              : [];
+        }
+
+        response = {
+          text: choice.message?.content,
+          tools: resTools,
+          messages: updatedMessages,
+        };
+      } catch (error) {
+        // debug
+        console.log("[chatCompletions] Error: ", error);
+        throw error;
+      }
+
       // debug
-      console.log("[chatCompletions] Error: ", error);
-      throw error;
-    }
+      console.log("[chatCompletions] response: ", response);
+      return response;
+    },
+    speechToText: async ({
+      args,
+      argsSchema = speechToTextArgumentsSchema,
+      config = {
+        apiModelAudioTranscription:
+          builderArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_AUDIO_TRANSCRIPTION : process.env.OPENAI_API_MODEL_AUDIO_TRANSCRIPTION,
+      },
+      configSchema = z.object({
+        apiModelAudioTranscription: z.string().min(1, "OPENAI_API_MODEL_AUDIO_TRANSCRIPTION or AZURE_OPENAI_API_DEPLOYMENT_AUDIO_TRANSCRIPTION is required"),
+      }),
+    } = {}) => {
+      const llmId = builderArgsSchema.parse(builderArgs);
+      const { audioFilePath, options } = argsSchema.parse(args);
+      const { apiModelAudioTranscription } = configSchema.parse(config);
 
-    // debug
-    console.log("[chatCompletions] response: ", response);
-    return response;
-  }
-
-  async speechToText(audioFilePath: string, options?: Record<string, any>): Promise<string> {
-    const speechOtions = {
-      file: createReadStream(audioFilePath),
-      model: this.llmConfig.apiModelAudioTranscription || "whisper-1",
-      language: options?.language || "ja",
-    };
-    try {
-      const response = await this.openaiClient.audio.transcriptions.create(speechOtions);
-      return response.text;
-    } catch (error) {
-      // debug
-      console.log("[speechToText] Error: ", error);
-      throw error;
-    }
-  }
-
-  async textToSpeech(message: string, options?: Record<string, any>): Promise<LlmTextToSpeechResponse> {
-    const speechOtions = {
-      model: this.llmConfig.apiModelText2Speech || "tts-1",
-      input: message,
-      voice: options?.voice || "alloy",
-      response_format: options?.responseFormat || "mp3",
-    };
-    try {
-      const response = await this.openaiClient.audio.speech.create(speechOtions);
-      const contentType = response.headers.get("content-type");
-      const arrayBuffer = await response.arrayBuffer();
-      return {
-        contentType: contentType!,
-        content: Buffer.from(arrayBuffer),
+      const speechOtions = {
+        file: createReadStream(audioFilePath),
+        model: apiModelAudioTranscription,
+        language: options?.language || "ja",
       };
-    } catch (error) {
-      // debug
-      console.log("[textToSpeech] Error: ", error);
-      throw error;
-    }
-  }
-}
+      try {
+        const openaiClient = llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build() : openAIClientBuilder.build();
+        const response = await openaiClient.audio.transcriptions.create(speechOtions);
+        return response.text;
+      } catch (error) {
+        // debug
+        console.log("[speechToText] Error: ", error);
+        throw error;
+      }
+    },
+    textToSpeech: async ({
+      args,
+      argsSchema = textToSpeechArgumentsSchema,
+      config = {
+        apiModelText2Speech: builderArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_TEXT2SPEECH : process.env.OPENAI_API_MODEL_TEXT2SPEECH,
+      },
+      configSchema = z.object({
+        apiModelText2Speech: z.string().min(1, "OPENAI_API_MODEL_TEXT2SPEECH or AZURE_OPENAI_API_DEPLOYMENT_TEXT2SPEECH is required"),
+      }),
+    } = {}) => {
+      const llmId = builderArgsSchema.parse(builderArgs);
+      const { message, options } = argsSchema.parse(args);
+      const { apiModelText2Speech } = configSchema.parse(config);
+
+      const speechOtions = {
+        model: apiModelText2Speech as string,
+        input: message,
+        voice: options?.voice || "alloy",
+        response_format: options?.responseFormat || "mp3",
+      };
+      try {
+        const openaiClient = llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build() : openAIClientBuilder.build();
+        const response = await openaiClient.audio.speech.create(speechOtions);
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
+        const arrayBuffer = await response.arrayBuffer();
+        return {
+          contentType: contentType,
+          content: Buffer.from(arrayBuffer),
+        };
+      } catch (error) {
+        // debug
+        console.log("[textToSpeech] Error: ", error);
+        throw error;
+      }
+    },
+  }),
+};
