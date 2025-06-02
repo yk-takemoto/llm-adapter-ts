@@ -22,23 +22,23 @@ const getAdapter = (llmId: LlmId): LlmAdapter => {
   return adapter;
 };
 
-const llmAdapterHelper = (llmId: LlmId) => ({
+const llmAdapterHelper = (params: { llmId: LlmId }) => ({
   chatCompletions: async (args: ChatCompletionsArguments) => {
-    const adapter = getAdapter(llmId);
+    const adapter = getAdapter(params.llmId);
     if (!("chatCompletions" in adapter) || !adapter.chatCompletions) {
-      throw new Error(`[llmAdapterHelper#chatCompletions] Adapter for ${llmId} does not support chatCompletions.`);
+      throw new Error(`[llmAdapterHelper#chatCompletions] Adapter for ${params.llmId} does not support chatCompletions.`);
     }
 
     return await adapter.chatCompletions({ args });
   },
   speechToText: async (args: SpeechToTextArguments) => {
-    const adapter = getAdapter(llmId);
+    const adapter = getAdapter(params.llmId);
     const resUnSupported = "unsupported";
 
     return "speechToText" in adapter && !!adapter.speechToText ? await adapter.speechToText({ args }) : resUnSupported;
   },
   textToSpeech: async (args: TextToSpeechArguments) => {
-    const adapter = getAdapter(llmId);
+    const adapter = getAdapter(params.llmId);
     const resUnSupported = (responseFormat: SupportedSorryAudioFormat = "mp3") => {
       const format = ["wav", "aac"].includes(responseFormat) ? responseFormat : "mp3";
       const contentType = format === "mp3" ? "audio/mpeg" : `audio/${format}`;

@@ -35,7 +35,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasOpenAIEnv) this.skip();
 
-      const helper = llmAdapterHelper("OpenAI");
+      const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const result = await helper.chatCompletions({
         systemPrompt: ["あなたは短く回答するアシスタントです。"],
         newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
@@ -58,7 +58,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
       if (!hasOpenAIEnv) this.skip();
 
       // 先にテキスト音声変換でテスト用音声ファイルを作成
-      const helper = llmAdapterHelper("OpenAI");
+      const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const testAudioPath = path.join(testTmpDir, "helper_test_audio_openai.mp3");
 
       try {
@@ -97,7 +97,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("textToSpeech が正しく実行されること", async function () {
       if (!hasOpenAIEnv) this.skip();
 
-      const helper = llmAdapterHelper("OpenAI");
+      const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const result = await helper.textToSpeech({
         message: "これはllmAdapterHelperのテストです。",
         options: {
@@ -124,7 +124,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasAzureEnv) this.skip();
 
-      const helper = llmAdapterHelper("AzureOpenAI");
+      const helper = llmAdapterHelper({ llmId: "AzureOpenAI" });
       const result = await helper.chatCompletions({
         systemPrompt: ["あなたは短く回答するアシスタントです。"],
         newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
@@ -151,7 +151,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasAnthropicEnv) this.skip();
 
-      const helper = llmAdapterHelper("Anthropic");
+      const helper = llmAdapterHelper({ llmId: "Anthropic" });
       const result = await helper.chatCompletions({
         systemPrompt: ["あなたは短く回答するアシスタントです。"],
         newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
@@ -173,7 +173,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("speechToText はサポートされていないこと", async function () {
       if (!hasAnthropicEnv) this.skip();
 
-      const helper = llmAdapterHelper("Anthropic");
+      const helper = llmAdapterHelper({ llmId: "Anthropic" });
       const result = await helper.speechToText({
         audioFilePath: "dummy.mp3",
         options: {},
@@ -186,7 +186,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("textToSpeech はソーリーメッセージを返すこと", async function () {
       if (!hasAnthropicEnv) this.skip();
 
-      const helper = llmAdapterHelper("Anthropic");
+      const helper = llmAdapterHelper({ llmId: "Anthropic" });
       const result = await helper.textToSpeech({
         message: "これはテストです。",
         options: {
@@ -212,7 +212,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasGeminiEnv) this.skip();
 
-      const helper = llmAdapterHelper("Google");
+      const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.chatCompletions({
         systemPrompt: ["あなたは短く回答するアシスタントです。"],
         newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
@@ -234,7 +234,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("speechToText はサポートされていないこと", async function () {
       if (!hasGeminiEnv) this.skip();
 
-      const helper = llmAdapterHelper("Google");
+      const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.speechToText({
         audioFilePath: "dummy.wav",
         options: {},
@@ -247,7 +247,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("textToSpeech はソーリーメッセージを返すこと", async function () {
       if (!hasGeminiEnv) this.skip();
 
-      const helper = llmAdapterHelper("Google");
+      const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.textToSpeech({
         message: "これはテストです。",
         options: {
@@ -273,7 +273,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasGroqEnv) this.skip();
 
-      const helper = llmAdapterHelper("Groq");
+      const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.chatCompletions({
         systemPrompt: ["あなたは短く回答するアシスタントです。"],
         newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
@@ -295,7 +295,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("speechToText はサポートされていないこと", async function () {
       if (!hasGroqEnv) this.skip();
 
-      const helper = llmAdapterHelper("Groq");
+      const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.speechToText({
         audioFilePath: "dummy.mp3",
         options: {},
@@ -308,7 +308,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("textToSpeech はソーリーメッセージを返すこと", async function () {
       if (!hasGroqEnv) this.skip();
 
-      const helper = llmAdapterHelper("Groq");
+      const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.textToSpeech({
         message: "これはテストです。",
         options: {
@@ -358,7 +358,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
         },
       ];
 
-      const helper = llmAdapterHelper(availableAdapter);
+      const helper = llmAdapterHelper({ llmId: availableAdapter });
       const result = await helper.chatCompletions({
         systemPrompt: ["あなたはアシスタントです。利用可能なツールがあれば積極的に利用してください。"],
         newMessageContents: [{ text: "東京の今日の天気を教えてください" }],
