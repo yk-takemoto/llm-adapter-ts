@@ -1,52 +1,48 @@
-import { promises as fs } from "fs";
 import { Groq } from "groq-sdk";
 import { z } from "zod";
-import { LlmAdapter } from "@/llm_adapter";
-import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
+import { McpTool, LlmClientBuilder, LlmAdapter, chatCompletionsArgumentsSchema } from "@/llm_adapter_schemas";
 
-export class GroqAdapter implements LlmAdapter {
-  protected llmConfig;
-  protected groqClient;
+const convertTools = (tools: McpTool[]): Groq.Chat.ChatCompletionTool[] => {
+  return tools.map((tool) => {
+    return {
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.inputSchema,
+      },
+    };
+  });
+};
 
-  constructor(
-    llmConfig = {
+const groqClientBuilder: LlmClientBuilder<Groq> = {
+  build: ({
+    config = {
       apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GROQ_API_KEY || process.env.GROQ_API_KEY,
+    },
+    configSchema = z.object({
+      apiKey: z.string().min(1, "GROQ_API_KEY is required"),
+    }),
+  } = {}) => {
+    const { apiKey } = configSchema.parse(config || {});
+    return new Groq({ apiKey });
+  },
+};
+
+const groqAdapter: LlmAdapter = {
+  chatCompletions: async ({
+    args,
+    argsSchema = chatCompletionsArgumentsSchema,
+    config = {
       apiModelChat: process.env.GROQ_API_MODEL_CHAT,
     },
-    llmConfigSchema = z.object({
-      apiKey: z.string().min(1, "GROQ_API_KEY is required"),
+    configSchema = z.object({
       apiModelChat: z.string().min(1, "GROQ_API_MODEL_CHAT is required"),
     }),
-  ) {
-    this.llmConfig = llmConfigSchema.parse(llmConfig);
-    this.groqClient = new Groq({ apiKey: llmConfig.apiKey });
-  }
+  } = {}) => {
+    const { systemPrompt, newMessageContents, options, inProgress } = argsSchema.parse(args);
+    const { apiModelChat } = configSchema.parse(config || {});
 
-  private convertTools(tools: McpTool[]): Groq.Chat.ChatCompletionTool[] {
-    return tools.map((tool) => {
-      return {
-        type: "function",
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.inputSchema,
-        },
-      };
-    });
-  }
-
-  async chatCompletions(
-    systemPrompt: string[],
-    newMessageContents: LlmChatCompletionsContent[],
-    options: LlmChatCompletionsOptions,
-    inProgress?: {
-      messages: Groq.Chat.ChatCompletionMessageParam[];
-      toolResults?: {
-        id: string;
-        content: string;
-      }[];
-    },
-  ): Promise<LlmChatCompletionsResponse> {
     let updatedMessages: Groq.Chat.ChatCompletionMessageParam[] = [];
     if (inProgress) {
       const resMessages =
@@ -107,7 +103,7 @@ export class GroqAdapter implements LlmAdapter {
       toolsOption =
         options.toolOption.type === "function" || options.toolOption.type === "function_strict"
           ? {
-              tools: this.convertTools(options.tools),
+              tools: convertTools(options.tools),
               tool_choice: options.toolOption.choice || ("auto" as Groq.Chat.ChatCompletionToolChoiceOption),
             }
           : {};
@@ -122,22 +118,19 @@ export class GroqAdapter implements LlmAdapter {
     }
 
     const chatOtions = {
-      model: this.llmConfig.apiModelChat,
+      model: apiModelChat,
       messages: updatedMessages,
-      max_tokens: (options.toolOption.maxTokens as number) || 1028,
-      temperature: (options.toolOption.temperature as number) ?? 0.7,
+      max_tokens: options.toolOption.maxTokens || 1028,
+      temperature: options.toolOption.temperature ?? 0.7,
       ...toolsOption,
       ...resFormatOption,
     };
-    let response: LlmChatCompletionsResponse = {
-      text: "",
-      tools: [],
-      messages: [],
-    };
+    let response;
     try {
       // debug
       console.log("[chatCompletions] start -- updatedMessages: ", JSON.stringify(updatedMessages));
-      const chatResponse = await this.groqClient.chat.completions.create(chatOtions);
+      const groqClient = groqClientBuilder.build();
+      const chatResponse = await groqClient.chat.completions.create(chatOtions);
       const choice = chatResponse.choices[0];
       const finishReason = choice.finish_reason;
       // debug
@@ -172,33 +165,7 @@ export class GroqAdapter implements LlmAdapter {
     // debug
     console.log("[chatCompletions] response: ", response);
     return response;
-  }
+  },
+};
 
-  async speechToText(__: string, ___?: Record<string, any>): Promise<string> {
-    //================ Not supported
-    try {
-      return "unsupported";
-    } catch (error) {
-      // debug
-      console.log("[speechToText] Error: ", error);
-      throw error;
-    }
-  }
-
-  async textToSpeech(_: string, options?: Record<string, any>): Promise<LlmTextToSpeechResponse> {
-    //================ Not supported
-    try {
-      const sorryFormat = options?.responseFormat === "wav" || options?.responseFormat === "aac" ? options.responseFormat : "mp3";
-      const sorry = await fs.readFile(`audio/sorry.ja.${sorryFormat}`);
-      const contentType = sorryFormat === "mp3" ? "audio/mpeg" : `audio/${sorryFormat}`;
-      return {
-        contentType: contentType,
-        content: sorry,
-      };
-    } catch (error) {
-      // debug
-      console.log("[textToSpeech] Error: ", error);
-      throw error;
-    }
-  }
-}
+export default groqAdapter;

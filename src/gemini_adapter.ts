@@ -1,4 +1,3 @@
-import { promises as fs } from "fs";
 import { z } from "zod";
 import {
   GoogleGenerativeAI,
@@ -14,117 +13,116 @@ import {
   ResponseSchema,
   Part,
 } from "@google/generative-ai";
-import { LlmAdapter } from "@/llm_adapter";
-import { LlmChatCompletionsContent, LlmChatCompletionsOptions, LlmChatCompletionsResponse, LlmTextToSpeechResponse, McpTool } from "@/llm_adapter_schemas";
+import { McpTool, LlmClientBuilder, LlmAdapter, chatCompletionsArgumentsSchema } from "@/llm_adapter_schemas";
 
-export class GeminiAdapter implements LlmAdapter {
-  protected llmConfig;
-  protected geminiClient;
-
-  constructor(
-    llmConfig = {
-      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GEMINI_API_KEY || process.env.GEMINI_API_KEY,
-      apiModelChat: process.env.GEMINI_API_MODEL_CHAT,
-    },
-    llmConfigSchema = z.object({
-      apiKey: z.string().min(1, "GEMINI_API_KEY is required"),
-      apiModelChat: z.string().min(1, "GEMINI_API_MODEL_CHAT is required"),
-    }),
-  ) {
-    this.llmConfig = llmConfigSchema.parse(llmConfig);
-    this.geminiClient = new GoogleGenerativeAI(llmConfig.apiKey);
-  }
-
-  // A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
-  private cleanJsonSchema(schema: Record<string, any>): Record<string, any> {
-    if (typeof schema !== "object" || schema === null) {
-      return schema;
-    }
-    if (schema.type === "object") {
-      const cleanedSchema: Record<string, any> = {};
-      Object.keys(schema).forEach((key) => {
-        if (key !== "additionalProperties" && key !== "$schema") {
-          if (key === "properties") {
-            cleanedSchema.properties = Object.keys(schema.properties).reduce(
-              (acc, propKey) => ({
-                ...acc,
-                [propKey]: this.cleanJsonSchema(schema.properties[propKey]),
-              }),
-              {},
-            );
-          } else {
-            cleanedSchema[key] = schema[key];
-          }
-        }
-      });
-      return cleanedSchema;
-    }
-    if (schema.type === "array" && schema.items) {
-      const { items, ...rest } = schema;
-      return {
-        ...rest,
-        items: this.cleanJsonSchema(items),
-      };
-    }
+// A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
+const cleanJsonSchema = (schema: Record<string, any>): Record<string, any> => {
+  if (typeof schema !== "object" || schema === null) {
     return schema;
   }
-
-  private convertTools(tools: McpTool[]): Tool[] {
-    const functions = tools.map((tool) => {
-      return {
-        name: tool.name,
-        description: tool.description,
-        parameters: this.cleanJsonSchema(tool.inputSchema),
-      } as FunctionDeclaration;
+  if (schema.type === "object") {
+    const cleanedSchema: Record<string, any> = {};
+    Object.keys(schema).forEach((key) => {
+      if (key !== "additionalProperties" && key !== "$schema") {
+        if (key === "properties") {
+          cleanedSchema.properties = Object.keys(schema.properties).reduce(
+            (acc, propKey) => ({
+              ...acc,
+              [propKey]: cleanJsonSchema(schema.properties[propKey]),
+            }),
+            {},
+          );
+        } else {
+          cleanedSchema[key] = schema[key];
+        }
+      }
     });
-    // debug
-    console.log("[convertTools] functions: ", JSON.stringify(functions, null, 2));
-    return [{ functionDeclarations: functions }];
+    return cleanedSchema;
   }
-
-  private convertResponseFormatJSONSchema(tool: McpTool): GenerationConfig {
+  if (schema.type === "array" && schema.items) {
+    const { items, ...rest } = schema;
     return {
-      responseMimeType: "application/json",
-      responseSchema: this.cleanJsonSchema(tool.inputSchema) as ResponseSchema,
+      ...rest,
+      items: cleanJsonSchema(items),
     };
   }
+  return schema;
+};
 
-  private async convertImageUrlToBase64(imageUrl: string): Promise<{
-    mimeType: string;
-    base64Content: string;
-  }> {
-    try {
-      const response = await fetch(imageUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+const convertTools = (tools: McpTool[]): Tool[] => {
+  const functions = tools.map((tool) => {
+    return {
+      name: tool.name,
+      description: tool.description,
+      parameters: cleanJsonSchema(tool.inputSchema),
+    } as FunctionDeclaration;
+  });
+  // debug
+  console.log("[convertTools] functions: ", JSON.stringify(functions, null, 2));
+  return [{ functionDeclarations: functions }];
+};
 
-      const mimeType = response.headers.get("content-type") || "image/jpeg";
-      const base64Content = buffer.toString("base64");
-      return { mimeType, base64Content };
-    } catch (error) {
-      throw new Error(`Failed to fetch or convert image: ${error}`);
-    }
+const convertResponseFormatJSONSchema = (tool: McpTool): GenerationConfig => {
+  return {
+    responseMimeType: "application/json",
+    responseSchema: cleanJsonSchema(tool.inputSchema) as ResponseSchema,
+  };
+};
+
+const convertImageUrlToBase64 = async (
+  imageUrl: string,
+): Promise<{
+  mimeType: string;
+  base64Content: string;
+}> => {
+  try {
+    const response = await fetch(imageUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const mimeType = response.headers.get("content-type") || "image/jpeg";
+    const base64Content = buffer.toString("base64");
+    return { mimeType, base64Content };
+  } catch (error) {
+    throw new Error(`Failed to fetch or convert image: ${error}`);
   }
+};
 
-  private convertMessagesForHistory(messages: Content[]): Content[] {
-    return messages.map((message) => ({
-      role: message.role,
-      parts: message.parts.map((part) => (part.inlineData?.data ? ({ ...part, inlineData: { ...part.inlineData, data: "ommitted" } } as Part) : part)),
-    }));
-  }
+const convertMessagesForHistory = (messages: Content[]): Content[] => {
+  return messages.map((message) => ({
+    role: message.role,
+    parts: message.parts.map((part) => (part.inlineData?.data ? ({ ...part, inlineData: { ...part.inlineData, data: "ommitted" } } as Part) : part)),
+  }));
+};
 
-  async chatCompletions(
-    systemPrompt: string[],
-    newMessageContents: LlmChatCompletionsContent[],
-    options: LlmChatCompletionsOptions,
-    inProgress?: {
-      messages: Content[];
-      toolResults?: {
-        id: string;
-        content: string;
-      }[];
+const geminiClientBuilder: LlmClientBuilder<GoogleGenerativeAI> = {
+  build: ({
+    config = {
+      apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GEMINI_API_KEY || process.env.GEMINI_API_KEY,
     },
-  ): Promise<LlmChatCompletionsResponse> {
+    configSchema = z.object({
+      apiKey: z.string().min(1, "GEMINI_API_KEY is required"),
+    }),
+  } = {}) => {
+    const { apiKey } = configSchema.parse(config || {});
+    return new GoogleGenerativeAI(apiKey);
+  },
+};
+
+const geminiAdapter: LlmAdapter = {
+  chatCompletions: async ({
+    args,
+    argsSchema = chatCompletionsArgumentsSchema,
+    config = {
+      apiModelChat: process.env.GEMINI_API_MODEL_CHAT,
+    },
+    configSchema = z.object({
+      apiModelChat: z.string().min(1, "GEMINI_API_MODEL_CHAT is required"),
+    }),
+  } = {}) => {
+    const { systemPrompt, newMessageContents, options, inProgress } = argsSchema.parse(args);
+    const { apiModelChat } = configSchema.parse(config || {});
+
     const covertedSystemPrompt: Content = {
       role: "model",
       parts: [],
@@ -146,7 +144,7 @@ export class GeminiAdapter implements LlmAdapter {
       const resParts = await Promise.all(
         newMessageContents.map(async (content) => {
           if (content.image) {
-            const { mimeType, base64Content } = await this.convertImageUrlToBase64(content.image.url);
+            const { mimeType, base64Content } = await convertImageUrlToBase64(content.image.url);
             return {
               inlineData: {
                 mimeType: mimeType,
@@ -167,15 +165,15 @@ export class GeminiAdapter implements LlmAdapter {
       toolsOption =
         options.toolOption.type === "function" || options.toolOption.type === "function_strict"
           ? {
-              tools: this.convertTools(options.tools),
+              tools: convertTools(options.tools),
               toolConfig: {
                 functionCallingConfig: {
-                  mode: (String(options.toolOption.choice).toUpperCase() as FunctionCallingMode) || FunctionCallingMode.AUTO,
+                  mode: options.toolOption.choice ? (String(options.toolOption.choice).toUpperCase() as FunctionCallingMode) : FunctionCallingMode.AUTO,
                 },
               },
             }
           : {};
-      resFormatOption = options.toolOption.type === "response_format" ? this.convertResponseFormatJSONSchema(options.tools[0]) : {};
+      resFormatOption = options.toolOption.type === "response_format" ? convertResponseFormatJSONSchema(options.tools[0]) : {};
     }
 
     const modelParams: ModelParams = {
@@ -186,27 +184,24 @@ export class GeminiAdapter implements LlmAdapter {
         },
       ],
       generationConfig: {
-        maxOutputTokens: (options.toolOption.maxTokens as number) || 1028,
-        temperature: (options.toolOption.temperature as number) ?? 0.7,
+        maxOutputTokens: options.toolOption.maxTokens || 1028,
+        temperature: options.toolOption.temperature ?? 0.7,
         ...resFormatOption,
       },
-      model: this.llmConfig.apiModelChat,
+      model: apiModelChat,
       systemInstruction: covertedSystemPrompt,
       ...toolsOption,
     };
-    let response: LlmChatCompletionsResponse = {
-      text: "",
-      tools: [],
-      messages: [],
-    };
+    let response;
     try {
       // For history
-      const historyMessages = this.convertMessagesForHistory(updatedMessages);
+      const historyMessages = convertMessagesForHistory(updatedMessages);
 
       // debug
       console.log("[chatCompletions] start -- historyMessages: ", JSON.stringify(historyMessages));
 
-      const chatResult = await this.geminiClient.getGenerativeModel(modelParams).generateContent({
+      const geminiClient = geminiClientBuilder.build();
+      const chatResult = await geminiClient.getGenerativeModel(modelParams).generateContent({
         contents: updatedMessages,
       });
       const chatResponse = chatResult.response;
@@ -246,33 +241,7 @@ export class GeminiAdapter implements LlmAdapter {
     // debug
     console.log("[chatCompletions] response: ", response);
     return response;
-  }
+  },
+};
 
-  async speechToText(__: string, ___?: Record<string, any>): Promise<string> {
-    //================ Not supported
-    try {
-      return "unsupported";
-    } catch (error) {
-      // debug
-      console.log("[speechToText] Error: ", error);
-      throw error;
-    }
-  }
-
-  async textToSpeech(_: string, options?: Record<string, any>): Promise<LlmTextToSpeechResponse> {
-    //================ Not supported
-    try {
-      const sorryFormat = options?.responseFormat === "wav" || options?.responseFormat === "aac" ? options.responseFormat : "mp3";
-      const sorry = await fs.readFile(`audio/sorry.ja.${sorryFormat}`);
-      const contentType = sorryFormat === "mp3" ? "audio/mpeg" : `audio/${sorryFormat}`;
-      return {
-        contentType: contentType,
-        content: sorry,
-      };
-    } catch (error) {
-      // debug
-      console.log("[textToSpeech] Error: ", error);
-      throw error;
-    }
-  }
-}
+export default geminiAdapter;
