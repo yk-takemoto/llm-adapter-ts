@@ -1,37 +1,42 @@
 import { expect } from "chai";
 import sinon from "sinon";
-import groqAdapter from "../src/groq_adapter";
+import { groqAdapterBuilder } from "../src/groq_adapter";
 import { McpTool } from "../src/llm_adapter_schemas";
 
 describe("Groq Adapter Tests", () => {
-  beforeEach(() => {
-    // groqAdapterオブジェクトのchatCompletionsメソッドをスタブ化
-    sinon.stub(groqAdapter, "chatCompletions").callsFake(async (params: any) => {
-      const { args } = params || {};
-      const { options } = args || {};
+  let groqAdapter: ReturnType<typeof groqAdapterBuilder.build>;
 
-      // ツール呼び出しのシミュレーション
-      if (options?.tools?.length > 0 && options.toolOption?.type === "function") {
+  beforeEach(() => {
+    // groqAdapterBuilderのbuildメソッドの戻り値をスタブ化
+    const adapterStub = {
+      chatCompletions: async (params: any) => {
+        const { args } = params || {};
+        const { options } = args || {};
+
+        if (options?.tools?.length > 0 && options.toolOption?.type === "function") {
+          return {
+            text: null,
+            tools: [
+              {
+                id: "call_12345",
+                name: "get_weather",
+                arguments: { location: "東京", unit: "celsius" },
+              },
+            ],
+            messages: [],
+          };
+        }
+
         return {
-          text: null,
-          tools: [
-            {
-              id: "call_12345",
-              name: "get_weather",
-              arguments: { location: "東京", unit: "celsius" },
-            },
-          ],
+          text: "テスト応答",
+          tools: [],
           messages: [],
         };
-      }
+      },
+    };
 
-      // 通常の応答のシミュレーション
-      return {
-        text: "テスト応答",
-        tools: [],
-        messages: [],
-      };
-    });
+    sinon.stub(groqAdapterBuilder, "build").returns(adapterStub);
+    groqAdapter = groqAdapterBuilder.build();
   });
 
   afterEach(() => {

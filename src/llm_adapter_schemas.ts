@@ -11,29 +11,35 @@ export const mcpToolSchema = z.object({
 });
 export type McpTool = z.infer<typeof mcpToolSchema>;
 
-export const GeneralArgumentsSchema = z.record(z.any());
-type GeneralArguments = z.infer<typeof GeneralArgumentsSchema>;
-export const GeneralResultSchema = z.union([z.record(z.any()), z.string(), z.number(), z.boolean(), z.array(z.any())]);
-type GeneralResult = z.infer<typeof GeneralResultSchema>;
-export const GeneralConfigSchema = z.record(z.any());
-type GeneralConfig = z.infer<typeof GeneralConfigSchema>;
+export const generalArgumentsSchema = z.record(z.any());
+type GeneralArguments = z.infer<typeof generalArgumentsSchema>;
+export const generalResultSchema = z.union([z.record(z.any()), z.string(), z.number(), z.boolean(), z.array(z.any())]);
+type GeneralResult = z.infer<typeof generalResultSchema>;
+export const generalConfigSchema = z.record(z.any());
+type GeneralConfig = z.infer<typeof generalConfigSchema>;
 
-type LlmAdapterInputParams<ArgumentsType = GeneralArguments, ConfigType = GeneralConfig> = {
+export type LlmAdapterInputParams<ArgumentsType = GeneralArguments, ConfigType = GeneralConfig> = {
   args?: ArgumentsType;
   argsSchema?: z.ZodType<ArgumentsType>;
   config?: ConfigType;
   configSchema?: z.ZodType<ConfigType>;
 };
 
+export type LlmAdapterBuilderInputParams<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = GeneralArguments> = {
+  buildArgs?: AdapterBuildArgsType;
+  buildArgsSchema?: z.ZodType<AdapterBuildArgsType>;
+  buildClientInputParams?: LlmAdapterInputParams<ClientBuildArgsType>;
+};
+
 // type LlmAdapterResult<ResultType = GeneralResult> = ResultType | undefined;
 type LlmAdapterResult<ResultType = GeneralResult> = ResultType;
 
-export type LlmAdapterFunction<ArgumentsType = GeneralArguments, ResultType = GeneralResult, ConfigType = GeneralConfig> = (
-  params?: LlmAdapterInputParams<ArgumentsType, ConfigType>,
+export type LlmAdapterFunction<InputParamsType = LlmAdapterInputParams, ResultType = GeneralResult> = (
+  params?: InputParamsType,
 ) => LlmAdapterResult<ResultType>;
 
-export type LlmAdapterAsyncFunction<ArgumentsType = GeneralArguments, ResultType = GeneralResult, ConfigType = GeneralConfig> = (
-  params?: LlmAdapterInputParams<ArgumentsType, ConfigType>,
+export type LlmAdapterAsyncFunction<InputParamsType = LlmAdapterInputParams, ResultType = GeneralResult> = (
+  params?: InputParamsType,
 ) => Promise<LlmAdapterResult<ResultType>>;
 
 export const chatCompletionsContentSchema = z.object({
@@ -66,7 +72,7 @@ export const chatCompletionsOptionsSchema = z
   .catchall(z.any());
 export type ChatCompletionsOptions = z.infer<typeof chatCompletionsOptionsSchema>;
 
-export const chatCompletionsArgumentsSchema = z.object({
+export const chatCompletionsArgsSchema = z.object({
   systemPrompt: z.array(z.string()),
   newMessageContents: z.array(chatCompletionsContentSchema),
   options: chatCompletionsOptionsSchema,
@@ -84,7 +90,7 @@ export const chatCompletionsArgumentsSchema = z.object({
     })
     .optional(),
 });
-export type ChatCompletionsArguments = z.infer<typeof chatCompletionsArgumentsSchema>;
+export type ChatCompletionsArgs = z.infer<typeof chatCompletionsArgsSchema>;
 
 export const chatCompletionsResultSchema = z.object({
   text: z.string().nullable(),
@@ -106,11 +112,11 @@ export const speechToTextOptionsSchema = z
   .catchall(z.any());
 export type SpeechToTextOptions = z.infer<typeof speechToTextOptionsSchema>;
 
-export const speechToTextArgumentsSchema = z.object({
+export const speechToTextArgsSchema = z.object({
   audioFilePath: z.string(),
   options: speechToTextOptionsSchema.optional(),
 });
-export type SpeechToTextArguments = z.infer<typeof speechToTextArgumentsSchema>;
+export type SpeechToTextArgs = z.infer<typeof speechToTextArgsSchema>;
 
 export const speechToTextResultSchema = z.string();
 export type SpeechToTextResult = z.infer<typeof speechToTextResultSchema>;
@@ -123,11 +129,11 @@ export const textToSpeechOptionsSchema = z
   .catchall(z.any());
 export type TextToSpeechOptions = z.infer<typeof textToSpeechOptionsSchema>;
 
-export const textToSpeechArgumentsSchema = z.object({
+export const textToSpeechArgsSchema = z.object({
   message: z.string(),
   options: textToSpeechOptionsSchema.optional(),
 });
-export type TextToSpeechArguments = z.infer<typeof textToSpeechArgumentsSchema>;
+export type TextToSpeechArgs = z.infer<typeof textToSpeechArgsSchema>;
 
 export const textToSpeechResultSchema = z.object({
   contentType: z.string(),
@@ -136,15 +142,15 @@ export const textToSpeechResultSchema = z.object({
 export type TextToSpeechResult = z.infer<typeof textToSpeechResultSchema>;
 
 export type ChatCompletionsAdapter = {
-  chatCompletions: LlmAdapterAsyncFunction<ChatCompletionsArguments, ChatCompletionsResult>;
+  chatCompletions: LlmAdapterAsyncFunction<LlmAdapterInputParams<ChatCompletionsArgs>, ChatCompletionsResult>;
 };
 
 export type SpeechToTextAdapter = {
-  speechToText: LlmAdapterAsyncFunction<SpeechToTextArguments, SpeechToTextResult>;
+  speechToText: LlmAdapterAsyncFunction<LlmAdapterInputParams<SpeechToTextArgs>, SpeechToTextResult>;
 };
 
 export type TextToSpeechAdapter = {
-  textToSpeech: LlmAdapterAsyncFunction<TextToSpeechArguments, TextToSpeechResult>;
+  textToSpeech: LlmAdapterAsyncFunction<LlmAdapterInputParams<TextToSpeechArgs>, TextToSpeechResult>;
 };
 
 export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter>;
@@ -152,10 +158,10 @@ export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & 
 export const llmIdSchema = z.enum(["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"]);
 export type LlmId = z.infer<typeof llmIdSchema>;
 
-export type LlmAdapterBuilder = {
-  build: LlmAdapterFunction<LlmId, LlmAdapter>;
+export type LlmAdapterBuilder<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = LlmId, ResultType = LlmAdapter> = {
+  build: LlmAdapterFunction<LlmAdapterBuilderInputParams<ClientBuildArgsType, AdapterBuildArgsType>, ResultType>;
 };
 
-export type LlmClientBuilder<LlmClientType> = {
-  build: LlmAdapterFunction<undefined, LlmClientType>;
+export type LlmClientBuilder<ClientBuildArgsType = GeneralArguments, ResultType = GeneralResult> = {
+  build: LlmAdapterFunction<LlmAdapterInputParams<ClientBuildArgsType>, ResultType>;
 };

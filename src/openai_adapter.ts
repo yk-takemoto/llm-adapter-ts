@@ -3,11 +3,12 @@ import { createReadStream } from "fs";
 import { z } from "zod";
 import {
   McpTool,
+  LlmAdapterInputParams,
   LlmAdapterBuilder,
   LlmClientBuilder,
-  chatCompletionsArgumentsSchema,
-  speechToTextArgumentsSchema,
-  textToSpeechArgumentsSchema,
+  chatCompletionsArgsSchema,
+  speechToTextArgsSchema,
+  textToSpeechArgsSchema,
 } from "@/llm_adapter_schemas";
 
 const addAdditionalPropertiesElementToObjectType = (schema: any, bool: boolean = false) => {
@@ -59,51 +60,60 @@ const convertResponseFormatJSONSchema = (tool: McpTool): OpenAI.ResponseFormatJS
   };
 };
 
-const openAIClientBuilder: LlmClientBuilder<OpenAI> = {
+const openAIClientBuilderArgsSchema = z.object({
+  apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
+}).passthrough();
+const azureOpenAIClientBuilderArgsSchema = z.object({
+  apiKey: z.string().min(1, "AZURE_OPENAI_API_KEY is required"),
+  endpoint: z.string().min(1, "AZURE_OPENAI_ENDPOINT is required"),
+  apiVersion: z.string().min(1, "OPENAI_API_VERSION is required"),
+}).passthrough();
+type OpenAIClientBuilderArgs = z.infer<typeof openAIClientBuilderArgsSchema>;
+type AzureOpenAIClientBuilderArgs = z.infer<typeof azureOpenAIClientBuilderArgsSchema>;
+
+const openAIClientBuilder: LlmClientBuilder<OpenAIClientBuilderArgs, OpenAI> = {
   build: ({
-    config = {
+    args = {
       apiKey: JSON.parse(process.env.APP_SECRETS || "{}").OPENAI_API_KEY || process.env.OPENAI_API_KEY,
     },
-    configSchema = z.object({
-      apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
-    }),
+    argsSchema = openAIClientBuilderArgsSchema,
   } = {}) => {
-    const { apiKey } = configSchema.parse(config || {});
-    return new OpenAI({ apiKey });
+    const parsedArgs = argsSchema.parse(args || {});
+    return new OpenAI(parsedArgs);
   },
 };
 
-const azureOpenAIClientBuilder: LlmClientBuilder<AzureOpenAI> = {
+const azureOpenAIClientBuilder: LlmClientBuilder<AzureOpenAIClientBuilderArgs, AzureOpenAI> = {
   build: ({
-    config = {
+    args = {
       apiKey: JSON.parse(process.env.APP_SECRETS || "{}").AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY,
       endpoint: process.env.AZURE_OPENAI_ENDPOINT,
       apiVersion: process.env.OPENAI_API_VERSION,
     },
-    configSchema = z.object({
-      apiKey: z.string().min(1, "AZURE_OPENAI_API_KEY is required"),
-      endpoint: z.string().min(1, "AZURE_OPENAI_ENDPOINT is required"),
-      apiVersion: z.string().min(1, "OPENAI_API_VERSION is required"),
-    }),
+    argsSchema = azureOpenAIClientBuilderArgsSchema,
   } = {}) => {
-    const { apiKey, endpoint, apiVersion } = configSchema.parse(config || {});
-    return new AzureOpenAI({ apiKey, endpoint, apiVersion });
+    const parsedArgs = argsSchema.parse(args || {});
+    return new AzureOpenAI(parsedArgs);
   },
 };
 
-export const openAIAdapterBuilder: LlmAdapterBuilder = {
-  build: ({ args: builderArgs = "OpenAI", argsSchema: builderArgsSchema = z.enum(["OpenAI", "AzureOpenAI"]) } = {}) => ({
+const getClient = (llmId: any, buildClientInputParams?: LlmAdapterInputParams<OpenAIClientBuilderArgs | AzureOpenAIClientBuilderArgs>) => {
+  return llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build(buildClientInputParams as LlmAdapterInputParams<AzureOpenAIClientBuilderArgs> || {}) : openAIClientBuilder.build(buildClientInputParams as LlmAdapterInputParams<OpenAIClientBuilderArgs> || {});
+};
+
+export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | AzureOpenAIClientBuilderArgs> = {
+  build: ({ buildArgs = "OpenAI", buildArgsSchema = z.enum(["OpenAI", "AzureOpenAI"]), buildClientInputParams } = {}) => ({
     chatCompletions: async ({
       args,
-      argsSchema = chatCompletionsArgumentsSchema,
+      argsSchema = chatCompletionsArgsSchema,
       config = {
-        apiModelChat: builderArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_CHAT : process.env.OPENAI_API_MODEL_CHAT,
+        apiModelChat: buildArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_CHAT : process.env.OPENAI_API_MODEL_CHAT,
       },
       configSchema = z.object({
         apiModelChat: z.string().min(1, "OPENAI_API_MODEL_CHAT or AZURE_OPENAI_API_DEPLOYMENT_CHAT is required"),
       }),
     } = {}) => {
-      const llmId = builderArgsSchema.parse(builderArgs);
+      const llmId = buildArgsSchema.parse(buildArgs);
       const { systemPrompt, newMessageContents, options, inProgress } = argsSchema.parse(args);
       const { apiModelChat } = configSchema.parse(config || {});
 
@@ -185,7 +195,7 @@ export const openAIAdapterBuilder: LlmAdapterBuilder = {
       try {
         // debug
         console.log("[chatCompletions] start -- updatedMessages: ", JSON.stringify(updatedMessages));
-        const openaiClient = llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build() : openAIClientBuilder.build();
+        const openaiClient = getClient(llmId, buildClientInputParams);
         const chatResponse = await openaiClient.chat.completions.create(chatOtions);
         const choice = chatResponse.choices[0];
         const finishReason = choice.finish_reason;
@@ -224,16 +234,16 @@ export const openAIAdapterBuilder: LlmAdapterBuilder = {
     },
     speechToText: async ({
       args,
-      argsSchema = speechToTextArgumentsSchema,
+      argsSchema = speechToTextArgsSchema,
       config = {
         apiModelAudioTranscription:
-          builderArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_AUDIO_TRANSCRIPTION : process.env.OPENAI_API_MODEL_AUDIO_TRANSCRIPTION,
+          buildArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_AUDIO_TRANSCRIPTION : process.env.OPENAI_API_MODEL_AUDIO_TRANSCRIPTION,
       },
       configSchema = z.object({
         apiModelAudioTranscription: z.string().min(1, "OPENAI_API_MODEL_AUDIO_TRANSCRIPTION or AZURE_OPENAI_API_DEPLOYMENT_AUDIO_TRANSCRIPTION is required"),
       }),
     } = {}) => {
-      const llmId = builderArgsSchema.parse(builderArgs);
+      const llmId = buildArgsSchema.parse(buildArgs);
       const { audioFilePath, options } = argsSchema.parse(args);
       const { apiModelAudioTranscription } = configSchema.parse(config);
 
@@ -243,7 +253,7 @@ export const openAIAdapterBuilder: LlmAdapterBuilder = {
         language: options?.language || "ja",
       };
       try {
-        const openaiClient = llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build() : openAIClientBuilder.build();
+        const openaiClient = getClient(llmId, buildClientInputParams);
         const response = await openaiClient.audio.transcriptions.create(speechOtions);
         return response.text;
       } catch (error) {
@@ -254,15 +264,15 @@ export const openAIAdapterBuilder: LlmAdapterBuilder = {
     },
     textToSpeech: async ({
       args,
-      argsSchema = textToSpeechArgumentsSchema,
+      argsSchema = textToSpeechArgsSchema,
       config = {
-        apiModelText2Speech: builderArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_TEXT2SPEECH : process.env.OPENAI_API_MODEL_TEXT2SPEECH,
+        apiModelText2Speech: buildArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_TEXT2SPEECH : process.env.OPENAI_API_MODEL_TEXT2SPEECH,
       },
       configSchema = z.object({
         apiModelText2Speech: z.string().min(1, "OPENAI_API_MODEL_TEXT2SPEECH or AZURE_OPENAI_API_DEPLOYMENT_TEXT2SPEECH is required"),
       }),
     } = {}) => {
-      const llmId = builderArgsSchema.parse(builderArgs);
+      const llmId = buildArgsSchema.parse(buildArgs);
       const { message, options } = argsSchema.parse(args);
       const { apiModelText2Speech } = configSchema.parse(config);
 
@@ -273,7 +283,7 @@ export const openAIAdapterBuilder: LlmAdapterBuilder = {
         response_format: options?.responseFormat || "mp3",
       };
       try {
-        const openaiClient = llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build() : openAIClientBuilder.build();
+        const openaiClient = getClient(llmId, buildClientInputParams);
         const response = await openaiClient.audio.speech.create(speechOtions);
         const contentType = response.headers.get("content-type") || "application/octet-stream";
         const arrayBuffer = await response.arrayBuffer();

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import * as dotenv from "dotenv";
-import groqAdapter from "../src/groq_adapter";
+import { groqAdapterBuilder } from "../src/groq_adapter";
 import { McpTool } from "../src/llm_adapter_schemas";
 
 // テスト環境変数をロード
@@ -32,6 +32,7 @@ describe("Groq API 統合テスト", function () {
     it("通常のテキスト会話が正しく処理されること", async function () {
       if (!hasAllEnvVars) this.skip();
 
+      const groqAdapter = groqAdapterBuilder.build();
       const result = await groqAdapter.chatCompletions({
         args: {
           systemPrompt: ["あなたは日本語でサポートするアシスタントです。短く回答してください。"],
@@ -72,6 +73,7 @@ describe("Groq API 統合テスト", function () {
         },
       ];
 
+      const groqAdapter = groqAdapterBuilder.build();
       const result = await groqAdapter.chatCompletions({
         args: {
           systemPrompt: ["あなたは日本語でサポートするアシスタントです。利用可能なツールがあれば積極的に利用してください。"],
@@ -93,6 +95,41 @@ describe("Groq API 統合テスト", function () {
       expect(result?.tools[0].arguments).to.have.property("location").that.includes("東京");
 
       console.log(`ツール呼び出し: ${JSON.stringify(result?.tools[0], null, 2)}`);
+    });
+
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const groqAdapter = groqAdapterBuilder.build({
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.GROQ_API_KEY || "",
+          },
+        },
+      });
+      const result = await groqAdapter.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは日本語でサポートするアシスタントです。短く回答してください。"],
+          newMessageContents: [{ text: "今日の東京の天気はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 200,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.GROQ_API_MODEL_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      expect(result?.tools).to.be.an("array").and.to.be.empty;
+
+      console.log(`回答: ${result?.text}`);
     });
   });
 

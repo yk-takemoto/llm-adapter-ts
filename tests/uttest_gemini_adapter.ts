@@ -1,37 +1,44 @@
 import { expect } from "chai";
 import sinon from "sinon";
-import geminiAdapter from "../src/gemini_adapter";
+import { geminiAdapterBuilder } from "../src/gemini_adapter";
 import { McpTool } from "../src/llm_adapter_schemas";
 
 describe("Gemini Adapter Tests", () => {
-  beforeEach(() => {
-    // geminiAdapterオブジェクトのchatCompletionsメソッドをスタブ化
-    sinon.stub(geminiAdapter, "chatCompletions").callsFake(async (params: any) => {
-      const { args } = params || {};
-      const { options } = args || {};
+  let geminiAdapter: ReturnType<typeof geminiAdapterBuilder.build>;
 
-      // ツール呼び出しのシミュレーション
-      if (options?.tools?.length > 0 && options.toolOption?.type === "function") {
+  beforeEach(() => {
+    // geminiAdapterBuilderのbuildメソッドの戻り値をスタブ化
+    const adapterStub = {
+      chatCompletions: async (params: any) => {
+        const { args } = params || {};
+        const { options } = args || {};
+
+        // ツール呼び出しのシミュレーション
+        if (options?.tools?.length > 0 && options.toolOption?.type === "function") {
+          return {
+            text: null,
+            tools: [
+              {
+                id: "call_12345",
+                name: "get_weather",
+                arguments: { location: "東京", unit: "celsius" },
+              },
+            ],
+            messages: [],
+          };
+        }
+
+        // 通常の応答のシミュレーション
         return {
-          text: null,
-          tools: [
-            {
-              id: "call_12345",
-              name: "get_weather",
-              arguments: { location: "東京", unit: "celsius" },
-            },
-          ],
+          text: "テスト応答",
+          tools: [],
           messages: [],
         };
-      }
+      },
+    };
 
-      // 通常の応答のシミュレーション
-      return {
-        text: "テスト応答",
-        tools: [],
-        messages: [],
-      };
-    });
+    sinon.stub(geminiAdapterBuilder, "build").returns(adapterStub);
+    geminiAdapter = geminiAdapterBuilder.build();
   });
 
   afterEach(() => {

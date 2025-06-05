@@ -1,37 +1,44 @@
 import { expect } from "chai";
 import sinon from "sinon";
-import anthropicAdapter from "../src/anthropic_adapter";
+import { anthropicAdapterBuilder } from "../src/anthropic_adapter";
 import { McpTool } from "../src/llm_adapter_schemas";
 
 describe("Anthropic Adapter Tests", () => {
-  beforeEach(() => {
-    // AnthropicオブジェクトのchatCompletionsメソッドをスタブ化
-    sinon.stub(anthropicAdapter, "chatCompletions").callsFake(async (params: any) => {
-      const { args } = params || {};
-      const { options } = args || {};
+  let anthropicAdapter: ReturnType<typeof anthropicAdapterBuilder.build>;
 
-      // ツール呼び出しのシミュレーション
-      if (options?.tools?.length > 0 && options.toolOption?.type === "function") {
+  beforeEach(() => {
+    // anthropicAdapterBuilderのbuildメソッドの戻り値をスタブ化
+    const adapterStub = {
+      chatCompletions: async (params: any) => {
+        const { args } = params || {};
+        const { options } = args || {};
+
+        // ツール呼び出しのシミュレーション
+        if (options?.tools?.length > 0 && options.toolOption?.type === "function") {
+          return {
+            text: null,
+            tools: [
+              {
+                id: "call_12345",
+                name: "get_weather",
+                arguments: { location: "東京", unit: "celsius" },
+              },
+            ],
+            messages: [],
+          };
+        }
+
+        // 通常の応答のシミュレーション
         return {
-          text: null,
-          tools: [
-            {
-              id: "call_12345",
-              name: "get_weather",
-              arguments: { location: "東京", unit: "celsius" },
-            },
-          ],
+          text: "テスト応答",
+          tools: [],
           messages: [],
         };
-      }
+      },
+    };
 
-      // 通常の応答のシミュレーション
-      return {
-        text: "テスト応答",
-        tools: [],
-        messages: [],
-      };
-    });
+    sinon.stub(anthropicAdapterBuilder, "build").returns(adapterStub);
+    anthropicAdapter = anthropicAdapterBuilder.build();
   });
 
   afterEach(() => {
