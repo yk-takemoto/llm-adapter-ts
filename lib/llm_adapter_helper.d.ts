@@ -1,8 +1,10 @@
-import { LlmId, ChatCompletionsArguments, SpeechToTextArguments, TextToSpeechArguments } from "./llm_adapter_schemas";
-declare const llmAdapterHelper: (params: {
+import { LlmId, LlmAdapterInputParams, ChatCompletionsArgs, SpeechToTextArgs, TextToSpeechArgs } from "./llm_adapter_schemas";
+type LlmAdapterHelperParams = {
     llmId: LlmId;
-}) => {
-    chatCompletions: (args: ChatCompletionsArguments) => Promise<{
+    buildClientInputParams?: LlmAdapterInputParams<any, Record<string, any>>;
+};
+declare const llmAdapterHelper: (helperParams: LlmAdapterHelperParams) => {
+    chatCompletions: (params: LlmAdapterInputParams<ChatCompletionsArgs>) => Promise<{
         text: string | null;
         tools: {
             name: string;
@@ -11,8 +13,8 @@ declare const llmAdapterHelper: (params: {
         }[];
         messages: any[];
     }>;
-    speechToText: (args: SpeechToTextArguments) => Promise<string>;
-    textToSpeech: (args: TextToSpeechArguments) => Promise<{
+    speechToText: (params: LlmAdapterInputParams<SpeechToTextArgs>) => Promise<string>;
+    textToSpeech: (params: LlmAdapterInputParams<TextToSpeechArgs>) => Promise<{
         content: Buffer<ArrayBuffer>;
         contentType: string;
     }>;

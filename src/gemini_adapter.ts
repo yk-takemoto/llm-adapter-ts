@@ -95,9 +95,11 @@ const convertMessagesForHistory = (messages: Content[]): Content[] => {
   }));
 };
 
-const geminiClientBuilderArgsSchema = z.object({
-  apiKey: z.string().min(1, "GEMINI_API_KEY is required"),
-}).passthrough();
+const geminiClientBuilderArgsSchema = z
+  .object({
+    apiKey: z.string().min(1, "GEMINI_API_KEY is required"),
+  })
+  .passthrough();
 export type GeminiClientBuilderArgs = z.infer<typeof geminiClientBuilderArgsSchema>;
 
 const geminiClientBuilder: LlmClientBuilder<GeminiClientBuilderArgs, GoogleGenerativeAI> = {

@@ -143,7 +143,7 @@ describe("LLM Adapter Schemas Tests", () => {
   describe("LLM ID Schema", () => {
     it("有効なLLM IDを正しく検証できること", () => {
       const validIds = ["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"];
-      validIds.forEach(id => {
+      validIds.forEach((id) => {
         const result = llmIdSchema.safeParse(id);
         expect(result.success).to.be.true;
       });
