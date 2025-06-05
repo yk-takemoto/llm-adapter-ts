@@ -121,6 +121,41 @@ describe("OpenAI API 統合テスト", function () {
 
       console.log(`ツール呼び出し: ${JSON.stringify(result?.tools[0], null, 2)}`);
     });
+
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build({
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.OPENAI_API_KEY || "",
+          },
+        },
+      });
+      const result = await openAIAdapter.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは日本語でサポートするアシスタントです。短く回答してください。"],
+          newMessageContents: [{ text: "今日の東京の天気はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 200,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.OPENAI_API_MODEL_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      expect(result?.tools).to.be.an("array").and.to.be.empty;
+
+      console.log(`回答: ${result?.text}`);
+    });
   });
 
   describe("speechToText インテグレーションテスト", () => {
@@ -226,7 +261,7 @@ describe("Azure OpenAI API 統合テスト", function () {
     it("通常のテキスト会話が正しく処理されること", async function () {
       if (!hasAllEnvVars) this.skip();
 
-      const openAIAdapter = openAIAdapterBuilder.build({ args: "AzureOpenAI" });
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
       const result = await openAIAdapter.chatCompletions({
         args: {
           systemPrompt: ["あなたは日本語でサポートするアシスタントです。短く回答してください。"],
@@ -267,7 +302,7 @@ describe("Azure OpenAI API 統合テスト", function () {
         },
       ];
 
-      const openAIAdapter = openAIAdapterBuilder.build({ args: "AzureOpenAI" });
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
       const result = await openAIAdapter.chatCompletions({
         args: {
           systemPrompt: ["あなたは日本語でサポートするアシスタントです。利用可能なツールがあれば積極的に利用してください。"],
@@ -290,6 +325,44 @@ describe("Azure OpenAI API 統合テスト", function () {
 
       console.log(`ツール呼び出し: ${JSON.stringify(result?.tools[0], null, 2)}`);
     });
+
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build({
+        buildArgs: "AzureOpenAI",
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.OPENAI_API_KEY || "",
+            endpoint: process.env.AZURE_OPENAI_ENDPOINT || "",
+            apiVersion: process.env.OPENAI_API_VERSION || "",
+          },
+        },
+      });
+      const result = await openAIAdapter.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは日本語でサポートするアシスタントです。短く回答してください。"],
+          newMessageContents: [{ text: "今日の東京の天気はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 200,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.AZURE_OPENAI_API_DEPLOYMENT_CHAT || "",
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      expect(result?.tools).to.be.an("array").and.to.be.empty;
+
+      console.log(`回答: ${result?.text}`);
+    });
   });
 
   describe("speechToText インテグレーションテスト", () => {
@@ -304,7 +377,7 @@ describe("Azure OpenAI API 統合テスト", function () {
       try {
         // 音声読み上げは最新のAPIバージョンには対応していないので旧バージョン指定
         process.env.OPENAI_API_VERSION = "2024-08-01-preview";
-        const openAIAdapter = openAIAdapterBuilder.build({ args: "AzureOpenAI" });
+        const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
         const ttsResult = await openAIAdapter.textToSpeech!({
           args: {
             message: "これはAzureOpenAIテキスト音声変換のテストです。",
@@ -334,7 +407,7 @@ describe("Azure OpenAI API 統合テスト", function () {
 
       // 文字お越しは最新のAPIバージョンを指定
       process.env.OPENAI_API_VERSION = "2025-03-01-preview";
-      const openAIAdapter = openAIAdapterBuilder.build({ args: "AzureOpenAI" });
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
       const result = await openAIAdapter.speechToText!({
         args: {
           audioFilePath: testAudioPath,
@@ -357,7 +430,7 @@ describe("Azure OpenAI API 統合テスト", function () {
 
       // 音声読み上げは最新のAPIバージョンには対応していないので旧バージョン指定
       process.env.OPENAI_API_VERSION = "2024-08-01-preview";
-      const openAIAdapter = openAIAdapterBuilder.build({ args: "AzureOpenAI" });
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
       const testMessage = "これはAzureOpenAIのテキスト音声変換テストです。";
       const result = await openAIAdapter.textToSpeech!({
         args: {

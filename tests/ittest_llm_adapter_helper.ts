@@ -37,14 +37,16 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const result = await helper.chatCompletions({
-        systemPrompt: ["あなたは短く回答するアシスタントです。"],
-        newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
-        options: {
-          toolOption: {
-            temperature: 0.7,
-            maxTokens: 100,
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
           },
-          tools: [],
         },
       });
 
@@ -52,6 +54,40 @@ describe("LlmAdapterHelper 統合テスト", function () {
       expect(result?.text).to.be.a("string").and.to.not.be.empty;
       expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
       console.log(`OpenAI chatCompletions 結果: ${result?.text}`);
+    });
+
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasOpenAIEnv) this.skip();
+
+      const helper = llmAdapterHelper({ 
+        llmId: "OpenAI",
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.OPENAI_API_KEY || "",
+          },
+        },
+      });
+      const result = await helper.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "簡単な自己紹介をしてください" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.OPENAI_API_MODEL_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      console.log(`OpenAI 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
     });
 
     it("speechToText が正しく実行されること", async function () {
@@ -63,10 +99,12 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       try {
         const ttsResult = await helper.textToSpeech({
-          message: "これはOpenAIヘルパーのテストです。",
-          options: {
-            voice: "alloy",
-            responseFormat: "mp3",
+          args: {
+            message: "これはOpenAIヘルパーのテストです。",
+            options: {
+              voice: "alloy",
+              responseFormat: "mp3",
+            },
           },
         });
 
@@ -79,9 +117,11 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
         // 音声からテキストへの変換テスト
         const sttResult = await helper.speechToText({
-          audioFilePath: testAudioPath,
-          options: {
-            language: "ja",
+          args: {
+            audioFilePath: testAudioPath,
+            options: {
+              language: "ja",
+            },
           },
         });
 
@@ -99,10 +139,12 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const result = await helper.textToSpeech({
-        message: "これはllmAdapterHelperのテストです。",
-        options: {
-          voice: "nova",
-          responseFormat: "mp3",
+        args: {
+          message: "これはllmAdapterHelperのテストです。",
+          options: {
+            voice: "nova",
+            responseFormat: "mp3",
+          },
         },
       });
 
@@ -126,14 +168,16 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "AzureOpenAI" });
       const result = await helper.chatCompletions({
-        systemPrompt: ["あなたは短く回答するアシスタントです。"],
-        newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
-        options: {
-          toolOption: {
-            temperature: 0.7,
-            maxTokens: 100,
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
           },
-          tools: [],
         },
       });
 
@@ -141,6 +185,42 @@ describe("LlmAdapterHelper 統合テスト", function () {
       expect(result?.text).to.be.a("string").and.to.not.be.empty;
       expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
       console.log(`AzureOpenAI chatCompletions 結果: ${result?.text}`);
+    });
+
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasAzureEnv) this.skip();
+
+      const helper = llmAdapterHelper({ 
+        llmId: "AzureOpenAI",
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.AZURE_OPENAI_API_KEY || "",
+            endpoint: process.env.AZURE_OPENAI_ENDPOINT || "",
+            apiVersion: process.env.OPENAI_API_VERSION,
+          },
+        },
+      });
+      const result = await helper.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "簡単な自己紹介をしてください" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.AZURE_OPENAI_API_DEPLOYMENT_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      console.log(`AzureOpenAI 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
     });
   });
 
@@ -153,14 +233,16 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Anthropic" });
       const result = await helper.chatCompletions({
-        systemPrompt: ["あなたは短く回答するアシスタントです。"],
-        newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
-        options: {
-          toolOption: {
-            temperature: 0.7,
-            maxTokens: 100,
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
           },
-          tools: [],
         },
       });
 
@@ -170,13 +252,49 @@ describe("LlmAdapterHelper 統合テスト", function () {
       console.log(`Anthropic chatCompletions 結果: ${result?.text}`);
     });
 
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasAnthropicEnv) this.skip();
+
+      const helper = llmAdapterHelper({ 
+        llmId: "Anthropic",
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.ANTHROPIC_API_KEY || "",
+          },
+        },
+      });
+      const result = await helper.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "簡単な自己紹介をしてください" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.ANTHROPIC_API_MODEL_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      console.log(`Anthropic 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
+    });
+
     it("speechToText はサポートされていないこと", async function () {
       if (!hasAnthropicEnv) this.skip();
 
       const helper = llmAdapterHelper({ llmId: "Anthropic" });
       const result = await helper.speechToText({
-        audioFilePath: "dummy.mp3",
-        options: {},
+        args: {
+          audioFilePath: "dummy.mp3",
+          options: {},
+        },
       });
 
       expect(result).to.equal("unsupported");
@@ -188,9 +306,11 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Anthropic" });
       const result = await helper.textToSpeech({
-        message: "これはテストです。",
-        options: {
-          responseFormat: "mp3",
+        args: {
+          message: "これはテストです。",
+          options: {
+            responseFormat: "mp3",
+          },
         },
       });
 
@@ -214,14 +334,16 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.chatCompletions({
-        systemPrompt: ["あなたは短く回答するアシスタントです。"],
-        newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
-        options: {
-          toolOption: {
-            temperature: 0.7,
-            maxTokens: 100,
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
           },
-          tools: [],
         },
       });
 
@@ -231,13 +353,49 @@ describe("LlmAdapterHelper 統合テスト", function () {
       console.log(`Google (Gemini) chatCompletions 結果: ${result?.text}`);
     });
 
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasGeminiEnv) this.skip();
+
+      const helper = llmAdapterHelper({ 
+        llmId: "Google",
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.GEMINI_API_KEY || "",
+          },
+        },
+      });
+      const result = await helper.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "簡単な自己紹介をしてください" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.GEMINI_API_MODEL_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      console.log(`Google (Gemini) 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
+    });
+
     it("speechToText はサポートされていないこと", async function () {
       if (!hasGeminiEnv) this.skip();
 
       const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.speechToText({
-        audioFilePath: "dummy.wav",
-        options: {},
+        args: {
+          audioFilePath: "dummy.wav",
+          options: {},
+        },
       });
 
       expect(result).to.equal("unsupported");
@@ -249,9 +407,11 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.textToSpeech({
-        message: "これはテストです。",
-        options: {
-          responseFormat: "wav",
+        args: {
+          message: "これはテストです。",
+          options: {
+            responseFormat: "wav",
+          },
         },
       });
 
@@ -275,14 +435,16 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.chatCompletions({
-        systemPrompt: ["あなたは短く回答するアシスタントです。"],
-        newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
-        options: {
-          toolOption: {
-            temperature: 0.7,
-            maxTokens: 100,
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "こんにちは、今日の気分はどうですか？" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
           },
-          tools: [],
         },
       });
 
@@ -292,13 +454,49 @@ describe("LlmAdapterHelper 統合テスト", function () {
       console.log(`Groq chatCompletions 結果: ${result?.text}`);
     });
 
+    it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
+      if (!hasGroqEnv) this.skip();
+
+      const helper = llmAdapterHelper({ 
+        llmId: "Groq",
+        buildClientInputParams: {
+          args: {
+            apiKey: process.env.GROQ_API_KEY || "",
+          },
+        },
+      });
+      const result = await helper.chatCompletions({
+        args: {
+          systemPrompt: ["あなたは短く回答するアシスタントです。"],
+          newMessageContents: [{ text: "簡単な自己紹介をしてください" }],
+          options: {
+            toolOption: {
+              temperature: 0.7,
+              maxTokens: 100,
+            },
+            tools: [],
+          },
+        },
+        config: {
+          apiModelChat: process.env.GROQ_API_MODEL_CHAT,
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.text).to.be.a("string").and.to.not.be.empty;
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      console.log(`Groq 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
+    });
+
     it("speechToText はサポートされていないこと", async function () {
       if (!hasGroqEnv) this.skip();
 
       const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.speechToText({
-        audioFilePath: "dummy.mp3",
-        options: {},
+        args: {
+          audioFilePath: "dummy.mp3",
+          options: {},
+        },
       });
 
       expect(result).to.equal("unsupported");
@@ -310,9 +508,11 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.textToSpeech({
-        message: "これはテストです。",
-        options: {
-          responseFormat: "aac",
+        args: {
+          message: "これはテストです。",
+          options: {
+            responseFormat: "aac",
+          },
         },
       });
 
@@ -360,15 +560,17 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: availableAdapter });
       const result = await helper.chatCompletions({
-        systemPrompt: ["あなたはアシスタントです。利用可能なツールがあれば積極的に利用してください。"],
-        newMessageContents: [{ text: "東京の今日の天気を教えてください" }],
-        options: {
-          toolOption: {
-            type: "function",
-            temperature: 0.2,
-            maxTokens: 500,
+        args: {
+          systemPrompt: ["あなたはアシスタントです。利用可能なツールがあれば積極的に利用してください。"],
+          newMessageContents: [{ text: "東京の今日の天気を教えてください" }],
+          options: {
+            toolOption: {
+              type: "function",
+              temperature: 0.2,
+              maxTokens: 500,
+            },
+            tools: tools,
           },
-          tools: tools,
         },
       });
 
