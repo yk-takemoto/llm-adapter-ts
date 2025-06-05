@@ -40,9 +40,11 @@ const convertMessagesForHistory = (messages: Anthropic.MessageParam[]): Anthropi
   }));
 };
 
-const anthropicClientBuilderArgsSchema = z.object({
-  apiKey: z.string().min(1, "ANTHROPIC_API_KEY is required"),
-}).passthrough();
+const anthropicClientBuilderArgsSchema = z
+  .object({
+    apiKey: z.string().min(1, "ANTHROPIC_API_KEY is required"),
+  })
+  .passthrough();
 export type AnthropicClientBuilderArgs = z.infer<typeof anthropicClientBuilderArgsSchema>;
 
 const anthropicClientBuilder: LlmClientBuilder<AnthropicClientBuilderArgs, Anthropic> = {

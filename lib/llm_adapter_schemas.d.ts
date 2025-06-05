@@ -33,21 +33,26 @@ export declare const mcpToolSchema: z.ZodObject<{
     };
 }>;
 export type McpTool = z.infer<typeof mcpToolSchema>;
-export declare const GeneralArgumentsSchema: z.ZodRecord<z.ZodString, z.ZodAny>;
-type GeneralArguments = z.infer<typeof GeneralArgumentsSchema>;
-export declare const GeneralResultSchema: z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodAny>, z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodArray<z.ZodAny, "many">]>;
-type GeneralResult = z.infer<typeof GeneralResultSchema>;
-export declare const GeneralConfigSchema: z.ZodRecord<z.ZodString, z.ZodAny>;
-type GeneralConfig = z.infer<typeof GeneralConfigSchema>;
-type LlmAdapterInputParams<ArgumentsType = GeneralArguments, ConfigType = GeneralConfig> = {
+export declare const generalArgumentsSchema: z.ZodRecord<z.ZodString, z.ZodAny>;
+type GeneralArguments = z.infer<typeof generalArgumentsSchema>;
+export declare const generalResultSchema: z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodAny>, z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodArray<z.ZodAny, "many">]>;
+type GeneralResult = z.infer<typeof generalResultSchema>;
+export declare const generalConfigSchema: z.ZodRecord<z.ZodString, z.ZodAny>;
+type GeneralConfig = z.infer<typeof generalConfigSchema>;
+export type LlmAdapterInputParams<ArgumentsType = GeneralArguments, ConfigType = GeneralConfig> = {
     args?: ArgumentsType;
     argsSchema?: z.ZodType<ArgumentsType>;
     config?: ConfigType;
     configSchema?: z.ZodType<ConfigType>;
 };
+export type LlmAdapterBuilderInputParams<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = GeneralArguments> = {
+    buildArgs?: AdapterBuildArgsType;
+    buildArgsSchema?: z.ZodType<AdapterBuildArgsType>;
+    buildClientInputParams?: LlmAdapterInputParams<ClientBuildArgsType>;
+};
 type LlmAdapterResult<ResultType = GeneralResult> = ResultType;
-export type LlmAdapterFunction<ArgumentsType = GeneralArguments, ResultType = GeneralResult, ConfigType = GeneralConfig> = (params?: LlmAdapterInputParams<ArgumentsType, ConfigType>) => LlmAdapterResult<ResultType>;
-export type LlmAdapterAsyncFunction<ArgumentsType = GeneralArguments, ResultType = GeneralResult, ConfigType = GeneralConfig> = (params?: LlmAdapterInputParams<ArgumentsType, ConfigType>) => Promise<LlmAdapterResult<ResultType>>;
+export type LlmAdapterFunction<InputParamsType = LlmAdapterInputParams, ResultType = GeneralResult> = (params?: InputParamsType) => LlmAdapterResult<ResultType>;
+export type LlmAdapterAsyncFunction<InputParamsType = LlmAdapterInputParams, ResultType = GeneralResult> = (params?: InputParamsType) => Promise<LlmAdapterResult<ResultType>>;
 export declare const chatCompletionsContentSchema: z.ZodObject<{
     text: z.ZodOptional<z.ZodString>;
     image: z.ZodOptional<z.ZodObject<{
@@ -148,7 +153,7 @@ export declare const chatCompletionsOptionsSchema: z.ZodObject<{
     }>;
 }, z.ZodAny, "strip">>;
 export type ChatCompletionsOptions = z.infer<typeof chatCompletionsOptionsSchema>;
-export declare const chatCompletionsArgumentsSchema: z.ZodObject<{
+export declare const chatCompletionsArgsSchema: z.ZodObject<{
     systemPrompt: z.ZodArray<z.ZodString, "many">;
     newMessageContents: z.ZodArray<z.ZodObject<{
         text: z.ZodOptional<z.ZodString>;
@@ -336,7 +341,7 @@ export declare const chatCompletionsArgumentsSchema: z.ZodObject<{
         }[] | undefined;
     } | undefined;
 }>;
-export type ChatCompletionsArguments = z.infer<typeof chatCompletionsArgumentsSchema>;
+export type ChatCompletionsArgs = z.infer<typeof chatCompletionsArgsSchema>;
 export declare const chatCompletionsResultSchema: z.ZodObject<{
     text: z.ZodNullable<z.ZodString>;
     tools: z.ZodArray<z.ZodObject<{
@@ -379,7 +384,7 @@ export declare const speechToTextOptionsSchema: z.ZodObject<{
     language: z.ZodOptional<z.ZodString>;
 }, z.ZodAny, "strip">>;
 export type SpeechToTextOptions = z.infer<typeof speechToTextOptionsSchema>;
-export declare const speechToTextArgumentsSchema: z.ZodObject<{
+export declare const speechToTextArgsSchema: z.ZodObject<{
     audioFilePath: z.ZodString;
     options: z.ZodOptional<z.ZodObject<{
         language: z.ZodOptional<z.ZodString>;
@@ -399,7 +404,7 @@ export declare const speechToTextArgumentsSchema: z.ZodObject<{
         language: z.ZodOptional<z.ZodString>;
     }, z.ZodAny, "strip"> | undefined;
 }>;
-export type SpeechToTextArguments = z.infer<typeof speechToTextArgumentsSchema>;
+export type SpeechToTextArgs = z.infer<typeof speechToTextArgsSchema>;
 export declare const speechToTextResultSchema: z.ZodString;
 export type SpeechToTextResult = z.infer<typeof speechToTextResultSchema>;
 export declare const textToSpeechOptionsSchema: z.ZodObject<{
@@ -413,7 +418,7 @@ export declare const textToSpeechOptionsSchema: z.ZodObject<{
     responseFormat: z.ZodOptional<z.ZodAny>;
 }, z.ZodAny, "strip">>;
 export type TextToSpeechOptions = z.infer<typeof textToSpeechOptionsSchema>;
-export declare const textToSpeechArgumentsSchema: z.ZodObject<{
+export declare const textToSpeechArgsSchema: z.ZodObject<{
     message: z.ZodString;
     options: z.ZodOptional<z.ZodObject<{
         voice: z.ZodAny;
@@ -438,7 +443,7 @@ export declare const textToSpeechArgumentsSchema: z.ZodObject<{
         responseFormat: z.ZodOptional<z.ZodAny>;
     }, z.ZodAny, "strip"> | undefined;
 }>;
-export type TextToSpeechArguments = z.infer<typeof textToSpeechArgumentsSchema>;
+export type TextToSpeechArgs = z.infer<typeof textToSpeechArgsSchema>;
 export declare const textToSpeechResultSchema: z.ZodObject<{
     contentType: z.ZodString;
     content: z.ZodType<Buffer<ArrayBuffer>, z.ZodTypeDef, Buffer<ArrayBuffer>>;
@@ -451,21 +456,21 @@ export declare const textToSpeechResultSchema: z.ZodObject<{
 }>;
 export type TextToSpeechResult = z.infer<typeof textToSpeechResultSchema>;
 export type ChatCompletionsAdapter = {
-    chatCompletions: LlmAdapterAsyncFunction<ChatCompletionsArguments, ChatCompletionsResult>;
+    chatCompletions: LlmAdapterAsyncFunction<LlmAdapterInputParams<ChatCompletionsArgs>, ChatCompletionsResult>;
 };
 export type SpeechToTextAdapter = {
-    speechToText: LlmAdapterAsyncFunction<SpeechToTextArguments, SpeechToTextResult>;
+    speechToText: LlmAdapterAsyncFunction<LlmAdapterInputParams<SpeechToTextArgs>, SpeechToTextResult>;
 };
 export type TextToSpeechAdapter = {
-    textToSpeech: LlmAdapterAsyncFunction<TextToSpeechArguments, TextToSpeechResult>;
+    textToSpeech: LlmAdapterAsyncFunction<LlmAdapterInputParams<TextToSpeechArgs>, TextToSpeechResult>;
 };
 export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter>;
 export declare const llmIdSchema: z.ZodEnum<["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"]>;
 export type LlmId = z.infer<typeof llmIdSchema>;
-export type LlmAdapterBuilder = {
-    build: LlmAdapterFunction<LlmId, LlmAdapter>;
+export type LlmAdapterBuilder<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = LlmId, ResultType = LlmAdapter> = {
+    build: LlmAdapterFunction<LlmAdapterBuilderInputParams<ClientBuildArgsType, AdapterBuildArgsType>, ResultType>;
 };
-export type LlmClientBuilder<LlmClientType> = {
-    build: LlmAdapterFunction<undefined, LlmClientType>;
+export type LlmClientBuilder<ClientBuildArgsType = GeneralArguments, ResultType = GeneralResult> = {
+    build: LlmAdapterFunction<LlmAdapterInputParams<ClientBuildArgsType>, ResultType>;
 };
 export {};

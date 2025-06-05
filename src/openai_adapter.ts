@@ -60,14 +60,18 @@ const convertResponseFormatJSONSchema = (tool: McpTool): OpenAI.ResponseFormatJS
   };
 };
 
-const openAIClientBuilderArgsSchema = z.object({
-  apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
-}).passthrough();
-const azureOpenAIClientBuilderArgsSchema = z.object({
-  apiKey: z.string().min(1, "AZURE_OPENAI_API_KEY is required"),
-  endpoint: z.string().min(1, "AZURE_OPENAI_ENDPOINT is required"),
-  apiVersion: z.string().min(1, "OPENAI_API_VERSION is required"),
-}).passthrough();
+const openAIClientBuilderArgsSchema = z
+  .object({
+    apiKey: z.string().min(1, "OPENAI_API_KEY is required"),
+  })
+  .passthrough();
+const azureOpenAIClientBuilderArgsSchema = z
+  .object({
+    apiKey: z.string().min(1, "AZURE_OPENAI_API_KEY is required"),
+    endpoint: z.string().min(1, "AZURE_OPENAI_ENDPOINT is required"),
+    apiVersion: z.string().min(1, "OPENAI_API_VERSION is required"),
+  })
+  .passthrough();
 type OpenAIClientBuilderArgs = z.infer<typeof openAIClientBuilderArgsSchema>;
 type AzureOpenAIClientBuilderArgs = z.infer<typeof azureOpenAIClientBuilderArgsSchema>;
 
@@ -98,7 +102,9 @@ const azureOpenAIClientBuilder: LlmClientBuilder<AzureOpenAIClientBuilderArgs, A
 };
 
 const getClient = (llmId: any, buildClientInputParams?: LlmAdapterInputParams<OpenAIClientBuilderArgs | AzureOpenAIClientBuilderArgs>) => {
-  return llmId === "AzureOpenAI" ? azureOpenAIClientBuilder.build(buildClientInputParams as LlmAdapterInputParams<AzureOpenAIClientBuilderArgs> || {}) : openAIClientBuilder.build(buildClientInputParams as LlmAdapterInputParams<OpenAIClientBuilderArgs> || {});
+  return llmId === "AzureOpenAI"
+    ? azureOpenAIClientBuilder.build((buildClientInputParams as LlmAdapterInputParams<AzureOpenAIClientBuilderArgs>) || {})
+    : openAIClientBuilder.build((buildClientInputParams as LlmAdapterInputParams<OpenAIClientBuilderArgs>) || {});
 };
 
 export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | AzureOpenAIClientBuilderArgs> = {

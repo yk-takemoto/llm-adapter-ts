@@ -59,7 +59,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
       if (!hasOpenAIEnv) this.skip();
 
-      const helper = llmAdapterHelper({ 
+      const helper = llmAdapterHelper({
         llmId: "OpenAI",
         buildClientInputParams: {
           args: {
@@ -190,7 +190,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
       if (!hasAzureEnv) this.skip();
 
-      const helper = llmAdapterHelper({ 
+      const helper = llmAdapterHelper({
         llmId: "AzureOpenAI",
         buildClientInputParams: {
           args: {
@@ -255,7 +255,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
       if (!hasAnthropicEnv) this.skip();
 
-      const helper = llmAdapterHelper({ 
+      const helper = llmAdapterHelper({
         llmId: "Anthropic",
         buildClientInputParams: {
           args: {
@@ -356,7 +356,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
       if (!hasGeminiEnv) this.skip();
 
-      const helper = llmAdapterHelper({ 
+      const helper = llmAdapterHelper({
         llmId: "Google",
         buildClientInputParams: {
           args: {
@@ -457,7 +457,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
     it("環境パラメータ直接指定によるchatCompletions呼び出し", async function () {
       if (!hasGroqEnv) this.skip();
 
-      const helper = llmAdapterHelper({ 
+      const helper = llmAdapterHelper({
         llmId: "Groq",
         buildClientInputParams: {
           args: {

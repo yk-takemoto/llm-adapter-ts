@@ -15,9 +15,11 @@ const convertTools = (tools: McpTool[]): Groq.Chat.ChatCompletionTool[] => {
   });
 };
 
-const groqClientBuilderArgsSchema = z.object({
-  apiKey: z.string().min(1, "GROQ_API_KEY is required"),
-}).passthrough();
+const groqClientBuilderArgsSchema = z
+  .object({
+    apiKey: z.string().min(1, "GROQ_API_KEY is required"),
+  })
+  .passthrough();
 export type GroqClientBuilderArgs = z.infer<typeof groqClientBuilderArgsSchema>;
 
 const groqClientBuilder: LlmClientBuilder<GroqClientBuilderArgs, Groq> = {
