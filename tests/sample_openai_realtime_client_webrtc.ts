@@ -11,35 +11,35 @@ let testCount = 0;
 let outputDiv: HTMLElement;
 
 document.addEventListener("DOMContentLoaded", () => {
-    outputDiv = document.getElementById("output")!;
-    document.getElementById("startSessionButton")?.addEventListener("click", async (e) => {
-        (e.target as HTMLButtonElement).disabled = true;
-        const clientType = document.querySelector('input[name="clientType"]:checked') as HTMLInputElement;
-        await initializeWebRTC(clientType.value as "openai" | "azureOpenAI");
-    });
-    document.getElementById("stopSessionButton")?.addEventListener("click", (e) => {
-        if (dc) {
-            dc.close();
-            outputDiv.textContent += "WebRTC data channel closed.\n";
-        }
-        (e.target as HTMLButtonElement).disabled = true;
-        (document.getElementById("startSessionButton") as HTMLButtonElement).disabled = false;
-        (document.getElementById("runTestcasesButton") as HTMLButtonElement).disabled = true;
-        (document.getElementById("sendTextButton") as HTMLButtonElement).disabled = true;
-        isRunningTestcase = false;
-        testCount = 0;
-    });
-    document.getElementById("runTestcasesButton")?.addEventListener("click", runTestcases);
-    document.getElementById("sendTextButton")?.addEventListener("click", () => {
-        const textInput = (document.getElementById("textInput") as HTMLInputElement).value;
-        if (textInput) {
-            sendTextRequest(textInput);
-            (document.getElementById("textInput") as HTMLInputElement).value = "";
-        }
-    });
-    document.getElementById("clearOutputButton")?.addEventListener("click", () => {
-        outputDiv.textContent = "";
-    });
+  outputDiv = document.getElementById("output")!;
+  document.getElementById("startSessionButton")?.addEventListener("click", async (e) => {
+    (e.target as HTMLButtonElement).disabled = true;
+    const clientType = document.querySelector('input[name="clientType"]:checked') as HTMLInputElement;
+    await initializeWebRTC(clientType.value as "openai" | "azureOpenAI");
+  });
+  document.getElementById("stopSessionButton")?.addEventListener("click", (e) => {
+    if (dc) {
+      dc.close();
+      outputDiv.textContent += "WebRTC data channel closed.\n";
+    }
+    (e.target as HTMLButtonElement).disabled = true;
+    (document.getElementById("startSessionButton") as HTMLButtonElement).disabled = false;
+    (document.getElementById("runTestcasesButton") as HTMLButtonElement).disabled = true;
+    (document.getElementById("sendTextButton") as HTMLButtonElement).disabled = true;
+    isRunningTestcase = false;
+    testCount = 0;
+  });
+  document.getElementById("runTestcasesButton")?.addEventListener("click", runTestcases);
+  document.getElementById("sendTextButton")?.addEventListener("click", () => {
+    const textInput = (document.getElementById("textInput") as HTMLInputElement).value;
+    if (textInput) {
+      sendTextRequest(textInput);
+      (document.getElementById("textInput") as HTMLInputElement).value = "";
+    }
+  });
+  document.getElementById("clearOutputButton")?.addEventListener("click", () => {
+    outputDiv.textContent = "";
+  });
 });
 
 let dc: RTCDataChannel;
@@ -57,15 +57,15 @@ const initializeWebRTC = async (clientType: "openai" | "azureOpenAI") => {
 
   // Create a peer connection
   const pc = new RTCPeerConnection();
-  
+
   // Set up to play remote audio from the model
   const audioEl = document.createElement("audio");
   audioEl.autoplay = true;
-  pc.ontrack = e => audioEl.srcObject = e.streams[0];
+  pc.ontrack = (e) => (audioEl.srcObject = e.streams[0]);
 
   // Add local audio track for microphone input in the browser
   const ms = await navigator.mediaDevices.getUserMedia({
-    audio: true
+    audio: true,
   });
   pc.addTrack(ms.getTracks()[0]);
 
@@ -76,12 +76,14 @@ const initializeWebRTC = async (clientType: "openai" | "azureOpenAI") => {
     outputDiv.textContent += "WebRTC data channel is open.\n";
 
     // initial session update
-    dc.send(JSON.stringify({
-      type: "session.update",
-      session: {
-        instructions: "You are a Japanese-speaking assistant. Please answer briefly.",
-      },
-    }));
+    dc.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          instructions: "You are a Japanese-speaking assistant. Please answer briefly.",
+        },
+      }),
+    );
 
     (document.getElementById("stopSessionButton") as HTMLButtonElement).disabled = false;
     (document.getElementById("runTestcasesButton") as HTMLButtonElement).disabled = false;
@@ -153,7 +155,7 @@ const initializeWebRTC = async (clientType: "openai" | "azureOpenAI") => {
     body: offer.sdp,
     headers: {
       Authorization: `Bearer ${EPHEMERAL_KEY}`,
-      "Content-Type": "application/sdp"
+      "Content-Type": "application/sdp",
     },
   });
 
@@ -190,22 +192,26 @@ const sendTextRequest = (text: string) => {
     return;
   }
   (document.getElementById("sendTextButton") as HTMLButtonElement).disabled = true;
-  dc.send(JSON.stringify({
-    type: "conversation.item.create",
-    item: {
-      type: "message",
-      role: "user",
-      content: [
-        {
-          type: "input_text",
-          text,
-        },
-      ],
-    },
-  }));
+  dc.send(
+    JSON.stringify({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text,
+          },
+        ],
+      },
+    }),
+  );
   outputDiv.textContent += `\nSent message: ${text}\n`;
   outputDiv.textContent += "========================================\n";
-  dc.send(JSON.stringify({
-    type: "response.create",
-  }));
+  dc.send(
+    JSON.stringify({
+      type: "response.create",
+    }),
+  );
 };

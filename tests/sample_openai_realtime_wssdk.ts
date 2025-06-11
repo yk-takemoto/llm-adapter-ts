@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { OpenAIRealtimeWS  } from "openai/beta/realtime/ws";
+import { OpenAIRealtimeWS } from "openai/beta/realtime/ws";
 import OpenAI, { AzureOpenAI } from "openai";
 import { testList } from "./sample_realtime_testcases";
 
@@ -10,13 +10,17 @@ const clientType = "openai" as "openai" | "azureOpenAI";
 let testCount = 0;
 
 async function main() {
-  const rt = clientType === "azureOpenAI"
-    ? await OpenAIRealtimeWS.azure(new AzureOpenAI({
-      apiKey: process.env.AZURE_OPENAI_REALTIME_API_KEY,
-      endpoint: process.env.AZURE_OPENAI_REALTIME_ENDPOINT,
-      apiVersion: process.env.OPENAI_REALTIME_API_VERSION,
-      deployment: process.env.AZURE_OPENAI_REALTIME_API_DEPLOYMENT,}))
-    : new OpenAIRealtimeWS({ model: process.env.OPENAI_REALTIME_API_MODEL! }, new OpenAI({ apiKey: process.env.OPENAI_API_KEY }));
+  const rt =
+    clientType === "azureOpenAI"
+      ? await OpenAIRealtimeWS.azure(
+          new AzureOpenAI({
+            apiKey: process.env.AZURE_OPENAI_REALTIME_API_KEY,
+            endpoint: process.env.AZURE_OPENAI_REALTIME_ENDPOINT,
+            apiVersion: process.env.OPENAI_REALTIME_API_VERSION,
+            deployment: process.env.AZURE_OPENAI_REALTIME_API_DEPLOYMENT,
+          }),
+        )
+      : new OpenAIRealtimeWS({ model: process.env.OPENAI_REALTIME_API_MODEL! }, new OpenAI({ apiKey: process.env.OPENAI_API_KEY }));
 
   rt.socket.on("open", () => {
     console.log("Connected to WebSocket server.");

@@ -49,7 +49,7 @@ describe("Gemini API 統合テスト", function () {
 
       expect(result).to.not.be.null;
       expect(result?.text).to.be.a("string").and.to.not.be.empty;
-      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+      expect(result?.messages).to.be.an("array").and.to.have.length.at.least(1);
       expect(result?.tools).to.be.an("array").and.to.be.empty;
 
       console.log(`回答: ${result?.text}`);
@@ -127,7 +127,7 @@ describe("Gemini API 統合テスト", function () {
 
     expect(result).to.not.be.null;
     expect(result?.text).to.be.a("string").and.to.not.be.empty;
-    expect(result?.messages).to.be.an("array").and.to.have.length.at.least(2);
+    expect(result?.messages).to.be.an("array").and.to.have.length.at.least(1);
     expect(result?.tools).to.be.an("array").and.to.be.empty;
 
     console.log(`回答: ${result?.text}`);

@@ -23,14 +23,14 @@ const app = express();
 
 app.get("/session", async (req, res) => {
   const clientType = req.query.clientType as "openai" | "azureOpenAI" | undefined;
-  const sessionUrl = clientType === "azureOpenAI" ?  process.env.AZURE_OPENAI_REALTIME_SESSION_URL : process.env.OPENAI_REALTIME_SESSION_URL;
+  const sessionUrl = clientType === "azureOpenAI" ? process.env.AZURE_OPENAI_REALTIME_SESSION_URL : process.env.OPENAI_REALTIME_SESSION_URL;
   const apiKey = clientType === "azureOpenAI" ? process.env.AZURE_OPENAI_REALTIME_API_KEY : process.env.OPENAI_API_KEY;
   const model = clientType === "azureOpenAI" ? process.env.AZURE_OPENAI_REALTIME_API_DEPLOYMENT : process.env.OPENAI_REALTIME_API_MODEL;
 
   const r = await fetch(sessionUrl!, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

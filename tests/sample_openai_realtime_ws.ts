@@ -9,11 +9,14 @@ const clientType = "openai" as "openai" | "azureOpenAI";
 let testCount = 0;
 
 function main() {
-  const url = clientType === "azureOpenAI" ? `${process.env.AZURE_OPENAI_REALTIME_WS_URL}?api-version=${process.env.OPENAI_REALTIME_API_VERSION}&deployment=${process.env.AZURE_OPENAI_REALTIME_API_DEPLOYMENT}` : `${process.env.OPENAI_REALTIME_WS_URL}?model=${process.env.OPENAI_REALTIME_API_MODEL}`;
+  const url =
+    clientType === "azureOpenAI"
+      ? `${process.env.AZURE_OPENAI_REALTIME_WS_URL}?api-version=${process.env.OPENAI_REALTIME_API_VERSION}&deployment=${process.env.AZURE_OPENAI_REALTIME_API_DEPLOYMENT}`
+      : `${process.env.OPENAI_REALTIME_WS_URL}?model=${process.env.OPENAI_REALTIME_API_MODEL}`;
   const apiKey = clientType === "azureOpenAI" ? process.env.AZURE_OPENAI_REALTIME_API_KEY : process.env.OPENAI_API_KEY;
   const ws = new WebSocket(url, {
     headers: {
-      "Authorization": "Bearer " + apiKey,
+      Authorization: "Bearer " + apiKey,
       "OpenAI-Beta": "realtime=v1",
     },
   });

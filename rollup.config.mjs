@@ -6,7 +6,7 @@ const external = [
   "fs",
   "zod",
   "@anthropic-ai/sdk",
-  "@google/generative-ai",
+  "@google/genai",
   "groq-sdk",
   "openai"
 ];
@@ -15,7 +15,7 @@ const globals = {
   "fs": "fs",
   "zod": "zod",
   "@anthropic-ai/sdk": "Anthropic",
-  "@google/generative-ai": "GenerativeAI",
+  "@google/genai": "GoogleGenAI",
   "groq-sdk": "GroqSDK",
   "openai": "OpenAI"
 };

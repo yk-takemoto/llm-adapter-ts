@@ -1,11 +1,11 @@
-export const testList: { description: string, events: any[] }[] = [
+export const testList: { description: string; events: any[] }[] = [
   {
     description: "Test case 1: Simple text input",
     events: [
       {
         type: "session.update",
         session: {
-        //   modalities: ["text"],
+          //   modalities: ["text"],
           instructions: "You are a Japanese-speaking assistant. Please answer briefly.",
         },
       },
@@ -17,7 +17,7 @@ export const testList: { description: string, events: any[] }[] = [
           content: [
             {
               type: "input_text",
-              text: "How is the weather in Tokyo today?"
+              text: "How is the weather in Tokyo today?",
             },
           ],
         },
@@ -48,7 +48,7 @@ export const testList: { description: string, events: any[] }[] = [
                 properties: {
                   city: {
                     type: "string",
-                    description: "The name of the city to get the weather for."
+                    description: "The name of the city to get the weather for.",
                   },
                 },
                 required: ["city"],
@@ -60,13 +60,13 @@ export const testList: { description: string, events: any[] }[] = [
       },
       {
         type: "conversation.item.create",
-        item: { 
+        item: {
           type: "message",
           role: "user",
           content: [
             {
               type: "input_text",
-              text: "How is the weather in Tokyo today?"
+              text: "How is the weather in Tokyo today?",
             },
           ],
         },
