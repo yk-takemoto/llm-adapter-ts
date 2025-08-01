@@ -3,15 +3,19 @@ import fs from "fs";
 import path from "path";
 import {
   AuthToken,
+  FunctionDeclaration,
+  FunctionResponse,
   GoogleGenAI,
   LiveServerMessage,
   MediaResolution,
   Modality,
+  Type,
 } from "@google/genai";
 
 dotenv.config({ path: ".env.test" });
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_REALTIME_MODALITY = process.argv[2] || "text";
 const GOOGLE_CLOUD_PROJECT = process.env.GOOGLE_CLOUD_PROJECT;
 const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION;
 const GOOGLE_GENAI_USE_VERTEXAI = process.env.GOOGLE_GENAI_USE_VERTEXAI;
@@ -76,32 +80,21 @@ class AsyncQueue<T> {
   }
 }
 
-async function live(client: GoogleGenAI, model: string) {
+const live = async (client: GoogleGenAI, model: string) => {
   const responseQueue = new AsyncQueue<LiveServerMessage>();
 
-  async function handleTurn(): Promise<LiveServerMessage[]> {
+  const handleTurn = async (): Promise<LiveServerMessage[]> => {
     const turn: LiveServerMessage[] = [];
     while (true) {
       const message = await responseQueue.get();
-      const text = message.serverContent?.modelTurn?.parts?.[0]?.text;
-      const inlineData =
-        message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-
-      if (text) {
-        console.log(`Received text: ${text}`);
-      }
-      if (inlineData) {
-        console.log(`Received inline data: ${inlineData.slice(0, 20)}...`);
-      }
-
       turn.push(message);
-      if (message.serverContent?.turnComplete) {
+      if (message.serverContent?.turnComplete || message.toolCall) {
         return turn;
       }
     }
-  }
+  };
 
-  function createWavHeader(dataLength: number, sampleRate: number, channels: number, bitsPerSample: number): Buffer {
+  const createWavHeader = (dataLength: number, sampleRate: number, channels: number, bitsPerSample: number): Buffer => {
     const header = Buffer.alloc(44);
     
     // RIFF header
@@ -124,19 +117,19 @@ async function live(client: GoogleGenAI, model: string) {
     header.writeUInt32LE(dataLength, 40);
     
     return header;
-  }
+  };
 
   // Config for Modality.TEXT
-  // const config = {
-  //   systemInstruction: "You are a helpful assistant and answer in Japanese in a friendly tone.",
-  //   responseModalities: [Modality.TEXT],
-  //   contextWindowCompression: {
-  //     triggerTokens: "25600",
-  //     slidingWindow: { targetTokens: "12800" },
-  //   },
-  // };
+  const configForText = {
+    systemInstruction: "You are a helpful assistant and answer in Japanese in a friendly tone.",
+    responseModalities: [Modality.TEXT],
+    contextWindowCompression: {
+      triggerTokens: "25600",
+      slidingWindow: { targetTokens: "12800" },
+    },
+  };
   // Config for Modality.AUDIO
-  const config = {
+  const configForAudio = {
     systemInstruction: "You are a helpful assistant and answer in Japanese in a friendly tone.",
     responseModalities: [Modality.AUDIO],
     mediaResolution: MediaResolution.MEDIA_RESOLUTION_MEDIUM,
@@ -154,7 +147,7 @@ async function live(client: GoogleGenAI, model: string) {
   };
 
   const session = await client.live.connect({
-    model: model,
+    model,
     callbacks: {
       onopen: () => {
         console.debug("Opened");
@@ -170,9 +163,10 @@ async function live(client: GoogleGenAI, model: string) {
         responseQueue.clear();
       },
     },
-    config,
+    config: GEMINI_REALTIME_MODALITY === "audio" ? configForAudio : configForText,
   });
 
+  // Send a simple text message
   const simple = "Hello world";
   console.log("-".repeat(80));
   console.log(`Sent: ${simple}`);
@@ -180,7 +174,7 @@ async function live(client: GoogleGenAI, model: string) {
 
   const simpleTurnRes = await handleTurn();
 
-  if (config.responseModalities.includes(Modality.AUDIO)) {
+  if (GEMINI_REALTIME_MODALITY === "audio") {
     const audioChunks: string[] = [];
     for (const message of simpleTurnRes) {
       const inlineData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
@@ -205,8 +199,23 @@ async function live(client: GoogleGenAI, model: string) {
     } else {
       console.log("No audio data found in response");
     }
+  } else {
+    for (const turn of simpleTurnRes) {
+      if (turn.text) {
+        for (const part of turn.serverContent?.modelTurn?.parts || []) {
+          if (part.text) {
+            console.debug('Received text: %s\n', part.text);
+          } else if (part.executableCode) {
+            console.debug('executableCode: %s\n', part.executableCode.code);
+          } else if (part.codeExecutionResult) {
+            console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+          }
+        }
+      }
+    }
   }
 
+  // Send an image with inline data
   const turns = [
     "This image is just black, can you see it?",
     {
@@ -223,7 +232,7 @@ async function live(client: GoogleGenAI, model: string) {
 
   const imageTurnRes = await handleTurn();
 
-  if (config.responseModalities.includes(Modality.AUDIO)) {
+  if (GEMINI_REALTIME_MODALITY === "audio") {
     const audioChunks: string[] = [];
     for (const message of imageTurnRes) {
       const inlineData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
@@ -248,10 +257,167 @@ async function live(client: GoogleGenAI, model: string) {
     } else {
       console.log("No audio data found in response");
     }
+  } else {
+    for (const turn of imageTurnRes) {
+      if (turn.text) {
+        for (const part of turn.serverContent?.modelTurn?.parts || []) {
+          if (part.text) {
+            console.debug('Received text: %s\n', part.text);
+          } else if (part.executableCode) {
+            console.debug('executableCode: %s\n', part.executableCode.code);
+          } else if (part.codeExecutionResult) {
+            console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+          }
+        }
+      }
+    }
+  }
+
+  // Send a text message for a tool call
+  const lightControlFunction: FunctionDeclaration = {
+    // behavior: Behavior.NON_BLOCKING,
+    name: "light_control",
+    description: "Control the lighting in a living room.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        power: {
+          type: Type.STRING,
+          description: "The power state of the light (on/off).",
+        },
+      },
+      required: ["power"],
+    },
+  };
+
+  const tools = [
+    { functionDeclarations: [lightControlFunction] },
+    { googleSearch: {} },
+    { codeExecution: {} },
+  ];
+
+  // Config for Modality.TEXT
+  const toolConfigForText = {
+    ...configForText,
+    tools,
+  };
+  // Config for Modality.AUDIO
+  const toolConfigForAudio = {
+    ...configForAudio,
+    tools,
+  };
+
+  const toolSession = await client.live.connect({
+    model,
+    callbacks: {
+      onopen: () => {
+        console.debug("Opened");
+      },
+      onmessage: (message: LiveServerMessage) => {
+        responseQueue.put(message);
+      },
+      onerror: (e: ErrorEvent) => {
+        console.debug("Error:", e.message);
+      },
+      onclose: (e: CloseEvent) => {
+        console.debug("Close:", e.reason);
+        responseQueue.clear();
+      },
+    },
+    config: GEMINI_REALTIME_MODALITY === "audio" ? toolConfigForAudio : toolConfigForText,
+  });
+
+
+  const toolsCallTurns = `Hey, I need you to do three things for me.
+
+    1. Turn on the lights
+    2. Compute the largest prime palindrome under 100000.
+    3. Then use Google Search to look up information about the largest earthquake in California the week of Dec 5 2024?
+
+    Thanks!
+  `;
+  console.log("-".repeat(80));
+  console.log(`Sent: ${toolsCallTurns}`);
+  toolSession.sendClientContent({turns: toolsCallTurns});
+
+  const toolCallTurnRes = await handleTurn();
+
+  for (const turn of toolCallTurnRes) {
+    if (turn.text) {
+      for (const part of turn.serverContent?.modelTurn?.parts || []) {
+        if (part.text) {
+          console.debug('Received text: %s\n', part.text);
+        } else if (part.executableCode) {
+          console.debug('executableCode: %s\n', part.executableCode.code);
+        } else if (part.codeExecutionResult) {
+          console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+        }
+      }
+    } else if (turn.toolCall) {
+      const functionResponses: FunctionResponse[] = [];
+      for (const fc of turn.toolCall.functionCalls || []) {
+        functionResponses.push({
+          id: fc.id,
+          name: fc.name,
+          response: {
+            result: "ok",
+            // scheduling: FunctionResponseScheduling.WHEN_IDLE,
+          },
+        });
+      }
+
+      console.debug('Sending tool response...\n');
+      toolSession.sendToolResponse({ functionResponses });
+    }
+  }
+
+  // Check again for new messages after sending the tool response
+  const afterToolCallRes = await handleTurn();
+
+  if (GEMINI_REALTIME_MODALITY === "audio") {
+    const audioChunks: string[] = [];
+    for (const message of afterToolCallRes) {
+      const inlineData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+      if (inlineData) {
+        audioChunks.push(inlineData);
+      }
+    }
+    
+    if (audioChunks.length > 0) {
+      const combinedBase64 = audioChunks.join("");
+      const audioBuffer = Buffer.from(combinedBase64, "base64");
+
+      const sampleRate = 24000;
+      const channels = 1;
+      const bitsPerSample = 16;
+      const wavHeader = createWavHeader(audioBuffer.length, sampleRate, channels, bitsPerSample);
+      const wavBuffer = Buffer.concat([wavHeader, audioBuffer]);
+
+      const outputPath = path.join(__dirname, "output_audio_3.wav");
+      fs.writeFileSync(outputPath, wavBuffer);
+      console.log(`Audio saved to: ${outputPath}`);
+    } else {
+      console.log("No audio data found in response");
+    }
+  } else {
+    for (const turn of afterToolCallRes) {
+      if (turn.text) {
+        for (const part of turn.serverContent?.modelTurn?.parts || []) {
+          if (part.text) {
+            console.debug('Received text: %s\n', part.text);
+          } else if (part.executableCode) {
+            console.debug('executableCode: %s\n', part.executableCode.code);
+          } else if (part.codeExecutionResult) {
+            console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+          }
+        }
+      }
+    }
   }
 
   session.close();
-}
+  toolSession.close();
+};
 
 async function main() {
   if (GOOGLE_GENAI_USE_VERTEXAI) {
