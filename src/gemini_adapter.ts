@@ -1,18 +1,16 @@
 import { z } from "zod";
 import {
-  GoogleGenerativeAI,
+  GoogleGenAI,
   HarmBlockThreshold,
   HarmCategory,
-  ModelParams,
   Content,
   FunctionDeclaration,
   Tool,
-  FunctionCallingMode,
-  FunctionCallPart,
+  FunctionCallingConfigMode,
   GenerationConfig,
-  ResponseSchema,
+  Schema,
   Part,
-} from "@google/generative-ai";
+} from "@google/genai";
 import { McpTool, LlmAdapterBuilder, LlmClientBuilder, chatCompletionsArgsSchema } from "@/llm_adapter_schemas";
 
 // A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
@@ -65,7 +63,7 @@ const convertTools = (tools: McpTool[]): Tool[] => {
 const convertResponseFormatJSONSchema = (tool: McpTool): GenerationConfig => {
   return {
     responseMimeType: "application/json",
-    responseSchema: cleanJsonSchema(tool.inputSchema) as ResponseSchema,
+    responseSchema: cleanJsonSchema(tool.inputSchema) as Schema,
   };
 };
 
@@ -91,7 +89,7 @@ const convertImageUrlToBase64 = async (
 const convertMessagesForHistory = (messages: Content[]): Content[] => {
   return messages.map((message) => ({
     role: message.role,
-    parts: message.parts.map((part) => (part.inlineData?.data ? ({ ...part, inlineData: { ...part.inlineData, data: "ommitted" } } as Part) : part)),
+    parts: message.parts?.map((part) => (part.inlineData?.data ? ({ ...part, inlineData: { ...part.inlineData, data: "ommitted" } } as Part) : part)),
   }));
 };
 
@@ -102,7 +100,7 @@ const geminiClientBuilderArgsSchema = z
   .passthrough();
 export type GeminiClientBuilderArgs = z.infer<typeof geminiClientBuilderArgsSchema>;
 
-const geminiClientBuilder: LlmClientBuilder<GeminiClientBuilderArgs, GoogleGenerativeAI> = {
+const geminiClientBuilder: LlmClientBuilder<GeminiClientBuilderArgs, GoogleGenAI> = {
   build: ({
     args = {
       apiKey: JSON.parse(process.env.APP_SECRETS || "{}").GEMINI_API_KEY || process.env.GEMINI_API_KEY,
@@ -110,7 +108,7 @@ const geminiClientBuilder: LlmClientBuilder<GeminiClientBuilderArgs, GoogleGener
     argsSchema = geminiClientBuilderArgsSchema,
   } = {}) => {
     const { apiKey } = argsSchema.parse(args || {});
-    return new GoogleGenerativeAI(apiKey);
+    return new GoogleGenAI({ apiKey });
   },
 };
 
@@ -134,7 +132,7 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
         parts: [],
       };
       systemPrompt.forEach((msg) => {
-        covertedSystemPrompt.parts.push({
+        covertedSystemPrompt.parts?.push({
           text: msg,
         });
       });
@@ -174,7 +172,9 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
                 tools: convertTools(options.tools),
                 toolConfig: {
                   functionCallingConfig: {
-                    mode: options.toolOption.choice ? (String(options.toolOption.choice).toUpperCase() as FunctionCallingMode) : FunctionCallingMode.AUTO,
+                    mode: options.toolOption.choice
+                      ? (String(options.toolOption.choice).toUpperCase() as FunctionCallingConfigMode)
+                      : FunctionCallingConfigMode.AUTO,
                   },
                 },
               }
@@ -182,22 +182,22 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
         resFormatOption = options.toolOption.type === "response_format" ? convertResponseFormatJSONSchema(options.tools[0]) : {};
       }
 
-      const modelParams: ModelParams = {
-        safetySettings: [
-          {
-            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-            threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: options.toolOption.maxTokens || 1028,
-          temperature: options.toolOption.temperature ?? 0.7,
-          ...resFormatOption,
-        },
-        model: apiModelChat,
-        systemInstruction: covertedSystemPrompt,
-        ...toolsOption,
-      };
+      // const modelParams: ModelParams = {
+      //   safetySettings: [
+      //     {
+      //       category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+      //       threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+      //     },
+      //   ],
+      //   generationConfig: {
+      //     maxOutputTokens: options.toolOption.maxTokens || 1028,
+      //     temperature: options.toolOption.temperature ?? 0.7,
+      //     ...resFormatOption,
+      //   },
+      //   model: apiModelChat,
+      //   systemInstruction: covertedSystemPrompt,
+      //   ...toolsOption,
+      // };
       let response;
       try {
         // For history
@@ -207,30 +207,44 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
         console.log("[chatCompletions] start -- historyMessages: ", JSON.stringify(historyMessages));
 
         const geminiClient = geminiClientBuilder.build(buildClientInputParams || {});
-        const chatResult = await geminiClient.getGenerativeModel(modelParams).generateContent({
+        const chatResult = await geminiClient.models.generateContent({
+          model: apiModelChat,
           contents: updatedMessages,
+          config: {
+            safetySettings: [
+              {
+                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+              },
+            ],
+            maxOutputTokens: options.toolOption.maxTokens || 1028,
+            temperature: options.toolOption.temperature ?? 0.7,
+            systemInstruction: covertedSystemPrompt,
+            ...resFormatOption,
+            ...toolsOption,
+          },
         });
-        const chatResponse = chatResult.response;
-        const text = chatResponse.text();
-        const funcCalls = chatResponse.functionCalls();
-        const finishReason = chatResponse.candidates && chatResponse.candidates[0].finishReason;
+        const text = chatResult.text || null;
+        const funcCalls = chatResult.functionCalls;
+        const finishReason = chatResult.candidates && chatResult.candidates[0].finishReason;
         // debug
         console.log(`[chatCompletions] end -- response.text: ${text} response.functionCalls: ${JSON.stringify(funcCalls)} finishReason: ${finishReason}`);
 
         let resTools: { id: string; name: string; arguments: Record<string, any> }[] = [];
-        if (chatResponse) {
-          const parts: FunctionCallPart[] = [];
-          resTools = funcCalls
-            ? funcCalls?.map((funcCall) => {
+        if (funcCalls) {
+          const parts: Part[] = [];
+          resTools =
+            funcCalls
+              .filter((funcCall): funcCall is typeof funcCall & { name: string } => funcCall.name !== undefined)
+              .map((funcCall) => {
                 parts.push({ functionCall: funcCall });
                 return {
                   id: "",
                   name: funcCall.name,
                   arguments: JSON.parse(JSON.stringify(funcCall.args)) as Record<string, any>,
                 };
-              }) || []
-            : [];
-          historyMessages.push({ role: "model", parts: parts });
+              }) || [];
+          historyMessages.push({ role: "model", parts });
         }
 
         response = {
