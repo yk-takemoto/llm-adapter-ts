@@ -9,6 +9,7 @@ import {
   chatCompletionsArgsSchema,
   speechToTextArgsSchema,
   textToSpeechArgsSchema,
+  embeddingArgsSchema,
 } from "@/llm_adapter_schemas";
 
 const addAdditionalPropertiesElementToObjectType = (schema: any, bool: boolean = false) => {
@@ -300,6 +301,37 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
       } catch (error) {
         // debug
         console.log("[textToSpeech] Error: ", error);
+        throw error;
+      }
+    },
+    embedding: async ({
+      args,
+      argsSchema = embeddingArgsSchema,
+      config = {
+        apiModelEmbedding: buildArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_EMBEDDING : process.env.OPENAI_API_MODEL_EMBEDDING,
+      },
+      configSchema = z.object({
+        apiModelEmbedding: z.string().min(1, "OPENAI_API_MODEL_EMBEDDING or AZURE_OPENAI_API_DEPLOYMENT_EMBEDDING is required"),
+      }),
+    } = {}) => {
+      const llmId = buildArgsSchema.parse(buildArgs);
+      const { text, options } = argsSchema.parse(args);
+      const { apiModelEmbedding } = configSchema.parse(config);
+
+      const embeddingOtions = {
+        model: apiModelEmbedding as string,
+        input: text,
+        ...options,
+      };
+      try {
+        const openaiClient = getClient(llmId, buildClientInputParams);
+        const response = await openaiClient.embeddings.create(embeddingOtions);
+        return {
+          embedding: response.data[0].embedding,
+        };
+      } catch (error) {
+        // debug
+        console.log("[embedding] Error: ", error);
         throw error;
       }
     },

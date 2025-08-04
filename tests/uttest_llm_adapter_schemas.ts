@@ -8,6 +8,9 @@ import {
   speechToTextArgsSchema,
   textToSpeechArgsSchema,
   textToSpeechResultSchema,
+  embeddingOptionsSchema,
+  embeddingArgsSchema,
+  embeddingResultSchema,
   llmIdSchema,
 } from "../src/llm_adapter_schemas";
 
@@ -152,6 +155,83 @@ describe("LLM Adapter Schemas Tests", () => {
     it("無効なLLM IDの場合にエラーとなること", () => {
       const invalidId = "InvalidLLM";
       const result = llmIdSchema.safeParse(invalidId);
+      expect(result.success).to.be.false;
+    });
+  });
+
+  describe("Embedding Schemas", () => {
+    it("有効なembeddingOptionsを正しく検証できること", () => {
+      const validOptions = {
+        dimensions: 1536,
+      };
+
+      const result = embeddingOptionsSchema.safeParse(validOptions);
+      expect(result.success).to.be.true;
+    });
+
+    it("空のembeddingOptionsを正しく検証できること", () => {
+      const emptyOptions = {};
+
+      const result = embeddingOptionsSchema.safeParse(emptyOptions);
+      expect(result.success).to.be.true;
+    });
+
+    it("有効なembeddingArgsを正しく検証できること", () => {
+      const validArgs = {
+        text: "これはサンプルテキストです",
+        options: {
+          dimensions: 1536,
+        },
+      };
+
+      const result = embeddingArgsSchema.safeParse(validArgs);
+      expect(result.success).to.be.true;
+    });
+
+    it("optionsなしのembeddingArgsを正しく検証できること", () => {
+      const validArgs = {
+        text: "これはサンプルテキストです",
+      };
+
+      const result = embeddingArgsSchema.safeParse(validArgs);
+      expect(result.success).to.be.true;
+    });
+
+    it("textが欠けているembeddingArgsでエラーとなること", () => {
+      const invalidArgs = {
+        options: {
+          dimensions: 1536,
+        },
+      };
+
+      const result = embeddingArgsSchema.safeParse(invalidArgs);
+      expect(result.success).to.be.false;
+    });
+
+    it("有効なembeddingResultを正しく検証できること", () => {
+      const validResult = {
+        embedding: [0.1, 0.2, 0.3, -0.4, 0.5],
+      };
+
+      const result = embeddingResultSchema.safeParse(validResult);
+      expect(result.success).to.be.true;
+    });
+
+    it("embeddingが配列でないembeddingResultでエラーとなること", () => {
+      const invalidResult = {
+        embedding: "not an array",
+      };
+
+      const result = embeddingResultSchema.safeParse(invalidResult);
+      expect(result.success).to.be.false;
+    });
+
+    it("embeddingが数値配列でないembeddingResultでエラーとなること", () => {
+      const invalidResult = {
+        embedding: ["0.1", "0.2", "0.3"],
+      };
+
+      const result = embeddingResultSchema.safeParse(invalidResult);
       expect(result.success).to.be.false;
     });
   });

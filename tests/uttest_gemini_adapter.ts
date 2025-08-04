@@ -35,6 +35,12 @@ describe("Gemini Adapter Tests", () => {
           messages: [],
         };
       },
+
+      embedding: async () => {
+        return {
+          embedding: [0.1, 0.2, 0.3, 0.4, 0.5],
+        };
+      },
     };
 
     sinon.stub(geminiAdapterBuilder, "build").returns(adapterStub);
@@ -107,6 +113,30 @@ describe("Gemini Adapter Tests", () => {
       expect(result?.tools).to.not.be.empty;
       expect(result?.tools[0]).to.have.property("name", "get_weather");
       expect(result?.tools[0].arguments).to.deep.equal({ location: "東京", unit: "celsius" });
+    });
+  });
+
+  describe("embedding", () => {
+    it("テキストのembeddingが正しく処理されること", async () => {
+      // 環境変数の設定
+      process.env.GEMINI_API_MODEL_EMBEDDING = "text-embedding-004";
+      process.env.GEMINI_API_KEY = "test-api-key";
+
+      const result = geminiAdapter.embedding
+        ? await geminiAdapter.embedding({
+            args: {
+              text: "これはテストメッセージです",
+              options: {
+                dimensions: 768,
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.have.property("embedding").that.is.an("array");
+      expect(result?.embedding).to.have.length.greaterThan(0);
+      expect(result?.embedding).to.deep.equal([0.1, 0.2, 0.3, 0.4, 0.5]);
     });
   });
 });
