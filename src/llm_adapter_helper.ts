@@ -2,7 +2,7 @@ import { openAIAdapterBuilder } from "@/openai_adapter";
 import { anthropicAdapterBuilder } from "@/anthropic_adapter";
 import { geminiAdapterBuilder } from "@/gemini_adapter";
 import { groqAdapterBuilder } from "@/groq_adapter";
-import { LlmId, LlmAdapterInputParams, LlmAdapterBuilder, LlmAdapter, ChatCompletionsArgs, SpeechToTextArgs, TextToSpeechArgs } from "@/llm_adapter_schemas";
+import { LlmId, LlmAdapterInputParams, LlmAdapterBuilder, LlmAdapter, ChatCompletionsArgs, SpeechToTextArgs, TextToSpeechArgs, EmbeddingArgs } from "@/llm_adapter_schemas";
 import { SupportedSorryAudioFormat, SORRY_AUDIO_BASE64 } from "@/sorry_audio_base64";
 
 type LlmAdapterHelperParams = {
@@ -60,6 +60,12 @@ const llmAdapterHelper = (helperParams: LlmAdapterHelperParams) => ({
     };
 
     return "textToSpeech" in adapter && !!adapter.textToSpeech ? await adapter.textToSpeech(params) : resUnSupported(params.args?.options?.responseFormat);
+  },
+  embedding: async (params: LlmAdapterInputParams<EmbeddingArgs>) => {
+    const adapter = getAdapter(helperParams);
+    const resUnSupported = { embedding: [] };
+
+    return "embedding" in adapter && !!adapter.embedding ? await adapter.embedding(params) : resUnSupported;
   },
 });
 

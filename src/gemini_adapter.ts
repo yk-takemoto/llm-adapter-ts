@@ -11,7 +11,7 @@ import {
   Schema,
   Part,
 } from "@google/genai";
-import { McpTool, LlmAdapterBuilder, LlmClientBuilder, chatCompletionsArgsSchema } from "@/llm_adapter_schemas";
+import { McpTool, LlmAdapterBuilder, LlmClientBuilder, chatCompletionsArgsSchema, embeddingArgsSchema } from "@/llm_adapter_schemas";
 
 // A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
 const cleanJsonSchema = (schema: Record<string, any>): Record<string, any> => {
@@ -261,6 +261,38 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
       // debug
       console.log("[chatCompletions] response: ", response);
       return response;
+    },
+    embedding: async ({
+      args,
+      argsSchema = embeddingArgsSchema,
+      config = {
+        apiModelEmbedding: process.env.GEMINI_API_MODEL_EMBEDDING,
+      },
+      configSchema = z.object({
+        apiModelEmbedding: z.string().min(1, "GEMINI_API_MODEL_EMBEDDING is required"),
+      }),
+    } = {}) => {
+      const { text, options } = argsSchema.parse(args);
+      const { apiModelEmbedding } = configSchema.parse(config);
+
+      const embeddingOtions = {
+        model: apiModelEmbedding as string,
+        contents: text,
+        config: {
+          ...(options?.dimensions ? { outputDimensionality: options.dimensions } : {}),
+        }
+      };
+      try {
+        const geminiClient = geminiClientBuilder.build(buildClientInputParams || {});
+        const response = await geminiClient.models.embedContent(embeddingOtions);
+        return {
+          embedding: response.embeddings ? response.embeddings[0].values || [] : [],
+        };
+      } catch (error) {
+        // debug
+        console.log("[embedding] Error: ", error);
+        throw error;
+      }
     },
   }),
 };

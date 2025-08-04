@@ -172,5 +172,36 @@ export const groqAdapterBuilder: LlmAdapterBuilder<GroqClientBuilderArgs> = {
       console.log("[chatCompletions] response: ", response);
       return response;
     },
+    // embedding: async ({
+    //   args,
+    //   argsSchema = embeddingArgsSchema,
+    //   config = {
+    //     apiModelEmbedding: process.env.GROQ_API_MODEL_EMBEDDING,
+    //   },
+    //   configSchema = z.object({
+    //     apiModelEmbedding: z.string().min(1, "GROQ_API_MODEL_EMBEDDING is required"),
+    //   }),
+    // } = {}) => {
+    //   const { text, options } = argsSchema.parse(args);
+    //   const { apiModelEmbedding } = configSchema.parse(config);
+
+    //   const embeddingOtions = {
+    //     model: apiModelEmbedding as string,
+    //     input: text,
+    //     ...options,
+    //   };
+    //   try {
+    //     const groqClient = groqClientBuilder.build(buildClientInputParams || {});
+    //     const response = await groqClient.embeddings.create(embeddingOtions);
+    //     return {
+    //       // TODO if type of string, convert to array
+    //       embedding: typeof response.data[0].embedding === "string" ? [] : response.data[0].embedding,
+    //     };
+    //   } catch (error) {
+    //     // debug
+    //     console.log("[embedding] Error: ", error);
+    //     throw error;
+    //   }
+    // },
   }),
 };
