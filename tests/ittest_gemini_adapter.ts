@@ -150,7 +150,7 @@ describe("Gemini API 統合テスト", function () {
 
       const geminiAdapter = geminiAdapterBuilder.build();
       const testText = "これはGeminiのembedding APIのテストです。";
-      
+
       const result = await geminiAdapter.embedding!({
         args: {
           text: testText,
@@ -171,7 +171,7 @@ describe("Gemini API 統合テスト", function () {
 
       const geminiAdapter = geminiAdapterBuilder.build();
       const testText = "これはGeminiのembedding APIのテストです。";
-      
+
       const result = await geminiAdapter.embedding!({
         args: {
           text: testText,
