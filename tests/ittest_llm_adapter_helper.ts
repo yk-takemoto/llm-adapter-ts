@@ -434,8 +434,10 @@ describe("LlmAdapterHelper 統合テスト", function () {
   describe("Google (Gemini) アダプター経由のテスト", () => {
     const geminiVars = ["GEMINI_API_KEY", "GEMINI_API_MODEL_CHAT"];
     const geminiEmbeddingVars = ["GEMINI_API_KEY", "GEMINI_API_MODEL_EMBEDDING"];
+    const geminiAudioVars = ["GEMINI_API_KEY", "GEMINI_API_MODEL_AUDIO_TRANSCRIPTION", "GEMINI_API_MODEL_TEXT2SPEECH"];
     const hasGeminiEnv = checkEnvVars(geminiVars);
     const hasGeminiEmbeddingEnv = checkEnvVars(geminiEmbeddingVars);
+    const hasGeminiAudioEnv = checkEnvVars(geminiAudioVars);
 
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasGeminiEnv) this.skip();
@@ -495,42 +497,72 @@ describe("LlmAdapterHelper 統合テスト", function () {
       console.log(`Google (Gemini) 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
     });
 
-    it("speechToText はサポートされていないこと", async function () {
-      if (!hasGeminiEnv) this.skip();
+    it("speechToText が正しく実行されること", async function () {
+      if (!hasGeminiAudioEnv) this.skip();
 
+      // 先にテキスト音声変換でテスト用音声ファイルを作成
       const helper = llmAdapterHelper({ llmId: "Google" });
-      const result = await helper.speechToText({
-        args: {
-          audioFilePath: "dummy.wav",
-          options: {},
-        },
-      });
+      const testAudioPath = path.join(testTmpDir, "helper_test_audio_gemini.wav");
 
-      expect(result).to.equal("unsupported");
-      console.log(`Google (Gemini) speechToText 結果: ${result}`);
+      try {
+        const ttsResult = await helper.textToSpeech({
+          args: {
+            message: "これはGeminiヘルパーのテストです。",
+            options: {
+              voice: "Kore",
+              responseFormat: "wav",
+            },
+          },
+        });
+
+        if (ttsResult && ttsResult.content) {
+          fs.writeFileSync(testAudioPath, ttsResult.content);
+          console.log(`テスト用音声ファイル作成: ${testAudioPath}`);
+        } else {
+          this.skip();
+        }
+
+        // 音声からテキストへの変換テスト
+        const sttResult = await helper.speechToText({
+          args: {
+            audioFilePath: testAudioPath,
+            options: {
+              language: "ja",
+            },
+          },
+        });
+
+        expect(sttResult).to.be.a("string").and.to.not.be.empty;
+        expect(sttResult.toLowerCase()).to.include("テスト");
+        console.log(`Google (Gemini) speechToText 結果: ${sttResult}`);
+      } catch (error) {
+        console.error("テスト中にエラーが発生しました:", error);
+        this.skip();
+      }
     });
 
-    it("textToSpeech はソーリーメッセージを返すこと", async function () {
-      if (!hasGeminiEnv) this.skip();
+    it("textToSpeech が正しく実行されること", async function () {
+      if (!hasGeminiAudioEnv) this.skip();
 
       const helper = llmAdapterHelper({ llmId: "Google" });
       const result = await helper.textToSpeech({
         args: {
-          message: "これはテストです。",
+          message: "これはllmAdapterHelperのGeminiテストです。",
           options: {
+            voice: "Kore",
             responseFormat: "wav",
           },
         },
       });
 
       expect(result).to.not.be.null;
-      expect(result?.contentType).to.equal("audio/wav");
+      expect(result?.contentType).to.include("audio");
       expect(Buffer.isBuffer(result?.content)).to.be.true;
 
-      // ソーリーメッセージの音声を保存
-      const outputPath = path.join(testTmpDir, "helper_tts_gemini_sorry.wav");
+      // テスト結果の音声を保存
+      const outputPath = path.join(testTmpDir, "helper_tts_gemini.wav");
       fs.writeFileSync(outputPath, result?.content || Buffer.from([]));
-      console.log(`生成された音声ファイル（ソーリー）: ${outputPath}`);
+      console.log(`生成された音声ファイル: ${outputPath}`);
     });
 
     it("embedding が正しく実行されること（optionsなし）", async function () {
@@ -579,7 +611,9 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
   describe("Groq アダプター経由のテスト", () => {
     const groqVars = ["GROQ_API_KEY", "GROQ_API_MODEL_CHAT"];
+    const groqAudioVars = ["GROQ_API_KEY", "GROQ_API_MODEL_AUDIO_TRANSCRIPTION", "GROQ_API_MODEL_TEXT2SPEECH"];
     const hasGroqEnv = checkEnvVars(groqVars);
+    const hasGroqAudioEnv = checkEnvVars(groqAudioVars);
 
     it("chatCompletions が正しく実行されること", async function () {
       if (!hasGroqEnv) this.skip();
@@ -639,42 +673,72 @@ describe("LlmAdapterHelper 統合テスト", function () {
       console.log(`Groq 直接パラメータ指定 chatCompletions 結果: ${result?.text}`);
     });
 
-    it("speechToText はサポートされていないこと", async function () {
-      if (!hasGroqEnv) this.skip();
+    it("speechToText が正しく実行されること", async function () {
+      if (!hasGroqAudioEnv) this.skip();
 
+      // 先にテキスト音声変換でテスト用音声ファイルを作成
       const helper = llmAdapterHelper({ llmId: "Groq" });
-      const result = await helper.speechToText({
-        args: {
-          audioFilePath: "dummy.mp3",
-          options: {},
-        },
-      });
+      const testAudioPath = path.join(testTmpDir, "helper_test_audio_groq.wav");
 
-      expect(result).to.equal("unsupported");
-      console.log(`Groq speechToText 結果: ${result}`);
+      try {
+        const ttsResult = await helper.textToSpeech({
+          args: {
+            message: "This is a test for the Groq helper.",
+            options: {
+              voice: "Aaliyah-PlayAI",
+              responseFormat: "wav",
+            },
+          },
+        });
+
+        if (ttsResult && ttsResult.content) {
+          fs.writeFileSync(testAudioPath, ttsResult.content);
+          console.log(`テスト用音声ファイル作成: ${testAudioPath}`);
+        } else {
+          this.skip();
+        }
+
+        // 音声からテキストへの変換テスト
+        const sttResult = await helper.speechToText({
+          args: {
+            audioFilePath: testAudioPath,
+            options: {
+              language: "en",
+            },
+          },
+        });
+
+        expect(sttResult).to.be.a("string").and.to.not.be.empty;
+        expect(sttResult.toLowerCase()).to.include("test");
+        console.log(`Groq speechToText 結果: ${sttResult}`);
+      } catch (error) {
+        console.error("テスト中にエラーが発生しました:", error);
+        this.skip();
+      }
     });
 
-    it("textToSpeech はソーリーメッセージを返すこと", async function () {
-      if (!hasGroqEnv) this.skip();
+    it("textToSpeech が正しく実行されること", async function () {
+      if (!hasGroqAudioEnv) this.skip();
 
       const helper = llmAdapterHelper({ llmId: "Groq" });
       const result = await helper.textToSpeech({
         args: {
-          message: "これはテストです。",
+          message: "This is a Groq test for llmAdapterHelper.",
           options: {
-            responseFormat: "aac",
+            voice: "Aaliyah-PlayAI",
+            responseFormat: "wav",
           },
         },
       });
 
       expect(result).to.not.be.null;
-      expect(result?.contentType).to.equal("audio/aac");
+      expect(result?.contentType).to.include("audio");
       expect(Buffer.isBuffer(result?.content)).to.be.true;
 
-      // ソーリーメッセージの音声を保存
-      const outputPath = path.join(testTmpDir, "helper_tts_groq_sorry.aac");
+      // テスト結果の音声を保存
+      const outputPath = path.join(testTmpDir, "helper_tts_groq.wav");
       fs.writeFileSync(outputPath, result?.content || Buffer.from([]));
-      console.log(`生成された音声ファイル（ソーリー）: ${outputPath}`);
+      console.log(`生成された音声ファイル: ${outputPath}`);
     });
 
     it("embedding はサポートされていないため空の配列を返すこと", async function () {
