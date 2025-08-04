@@ -1,16 +1,7 @@
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import {
-  AuthToken,
-  FunctionDeclaration,
-  FunctionResponse,
-  GoogleGenAI,
-  LiveServerMessage,
-  MediaResolution,
-  Modality,
-  Type,
-} from "@google/genai";
+import { AuthToken, FunctionDeclaration, FunctionResponse, GoogleGenAI, LiveServerMessage, MediaResolution, Modality, Type } from "@google/genai";
 
 dotenv.config({ path: ".env.test" });
 
@@ -19,8 +10,7 @@ const GEMINI_REALTIME_MODALITY = process.argv[2] || "text";
 const GOOGLE_CLOUD_PROJECT = process.env.GOOGLE_CLOUD_PROJECT;
 const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION;
 const GOOGLE_GENAI_USE_VERTEXAI = process.env.GOOGLE_GENAI_USE_VERTEXAI;
-const GOOGLE_GENAI_MLDEV_USE_EPHEMERAL =
-  process.env.GOOGLE_GENAI_MLDEV_USE_EPHEMERAL;
+const GOOGLE_GENAI_MLDEV_USE_EPHEMERAL = process.env.GOOGLE_GENAI_MLDEV_USE_EPHEMERAL;
 
 class AsyncQueue<T> {
   private queue: T[] = [];
@@ -96,26 +86,26 @@ const live = async (client: GoogleGenAI, model: string) => {
 
   const createWavHeader = (dataLength: number, sampleRate: number, channels: number, bitsPerSample: number): Buffer => {
     const header = Buffer.alloc(44);
-    
+
     // RIFF header
     header.write("RIFF", 0);
     header.writeUInt32LE(36 + dataLength, 4);
     header.write("WAVE", 8);
-    
+
     // fmt chunk
     header.write("fmt ", 12);
     header.writeUInt32LE(16, 16);
     header.writeUInt16LE(1, 20); // PCM
     header.writeUInt16LE(channels, 22);
     header.writeUInt32LE(sampleRate, 24);
-    header.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28);
-    header.writeUInt16LE(channels * bitsPerSample / 8, 32);
+    header.writeUInt32LE((sampleRate * channels * bitsPerSample) / 8, 28);
+    header.writeUInt16LE((channels * bitsPerSample) / 8, 32);
     header.writeUInt16LE(bitsPerSample, 34);
-    
+
     // data chunk
     header.write("data", 36);
     header.writeUInt32LE(dataLength, 40);
-    
+
     return header;
   };
 
@@ -170,7 +160,7 @@ const live = async (client: GoogleGenAI, model: string) => {
   const simple = "Hello world";
   console.log("-".repeat(80));
   console.log(`Sent: ${simple}`);
-  session.sendClientContent({turns: simple});
+  session.sendClientContent({ turns: simple });
 
   const simpleTurnRes = await handleTurn();
 
@@ -182,7 +172,7 @@ const live = async (client: GoogleGenAI, model: string) => {
         audioChunks.push(inlineData);
       }
     }
-    
+
     if (audioChunks.length > 0) {
       const combinedBase64 = audioChunks.join("");
       const audioBuffer = Buffer.from(combinedBase64, "base64");
@@ -204,11 +194,11 @@ const live = async (client: GoogleGenAI, model: string) => {
       if (turn.text) {
         for (const part of turn.serverContent?.modelTurn?.parts || []) {
           if (part.text) {
-            console.debug('Received text: %s\n', part.text);
+            console.debug("Received text: %s\n", part.text);
           } else if (part.executableCode) {
-            console.debug('executableCode: %s\n', part.executableCode.code);
+            console.debug("executableCode: %s\n", part.executableCode.code);
           } else if (part.codeExecutionResult) {
-            console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+            console.debug("codeExecutionResult: %s\n", part.codeExecutionResult.output);
           }
         }
       }
@@ -228,7 +218,7 @@ const live = async (client: GoogleGenAI, model: string) => {
   ];
   console.log("-".repeat(80));
   console.log(`Sent: ${turns}`);
-  session.sendClientContent({turns: turns});
+  session.sendClientContent({ turns: turns });
 
   const imageTurnRes = await handleTurn();
 
@@ -240,7 +230,7 @@ const live = async (client: GoogleGenAI, model: string) => {
         audioChunks.push(inlineData);
       }
     }
-    
+
     if (audioChunks.length > 0) {
       const combinedBase64 = audioChunks.join("");
       const audioBuffer = Buffer.from(combinedBase64, "base64");
@@ -262,11 +252,11 @@ const live = async (client: GoogleGenAI, model: string) => {
       if (turn.text) {
         for (const part of turn.serverContent?.modelTurn?.parts || []) {
           if (part.text) {
-            console.debug('Received text: %s\n', part.text);
+            console.debug("Received text: %s\n", part.text);
           } else if (part.executableCode) {
-            console.debug('executableCode: %s\n', part.executableCode.code);
+            console.debug("executableCode: %s\n", part.executableCode.code);
           } else if (part.codeExecutionResult) {
-            console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+            console.debug("codeExecutionResult: %s\n", part.codeExecutionResult.output);
           }
         }
       }
@@ -290,11 +280,7 @@ const live = async (client: GoogleGenAI, model: string) => {
     },
   };
 
-  const tools = [
-    { functionDeclarations: [lightControlFunction] },
-    { googleSearch: {} },
-    { codeExecution: {} },
-  ];
+  const tools = [{ functionDeclarations: [lightControlFunction] }, { googleSearch: {} }, { codeExecution: {} }];
 
   // Config for Modality.TEXT
   const toolConfigForText = {
@@ -327,7 +313,6 @@ const live = async (client: GoogleGenAI, model: string) => {
     config: GEMINI_REALTIME_MODALITY === "audio" ? toolConfigForAudio : toolConfigForText,
   });
 
-
   const toolsCallTurns = `Hey, I need you to do three things for me.
 
     1. Turn on the lights
@@ -338,7 +323,7 @@ const live = async (client: GoogleGenAI, model: string) => {
   `;
   console.log("-".repeat(80));
   console.log(`Sent: ${toolsCallTurns}`);
-  toolSession.sendClientContent({turns: toolsCallTurns});
+  toolSession.sendClientContent({ turns: toolsCallTurns });
 
   const toolCallTurnRes = await handleTurn();
 
@@ -346,11 +331,11 @@ const live = async (client: GoogleGenAI, model: string) => {
     if (turn.text) {
       for (const part of turn.serverContent?.modelTurn?.parts || []) {
         if (part.text) {
-          console.debug('Received text: %s\n', part.text);
+          console.debug("Received text: %s\n", part.text);
         } else if (part.executableCode) {
-          console.debug('executableCode: %s\n', part.executableCode.code);
+          console.debug("executableCode: %s\n", part.executableCode.code);
         } else if (part.codeExecutionResult) {
-          console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+          console.debug("codeExecutionResult: %s\n", part.codeExecutionResult.output);
         }
       }
     } else if (turn.toolCall) {
@@ -366,7 +351,7 @@ const live = async (client: GoogleGenAI, model: string) => {
         });
       }
 
-      console.debug('Sending tool response...\n');
+      console.debug("Sending tool response...\n");
       toolSession.sendToolResponse({ functionResponses });
     }
   }
@@ -382,7 +367,7 @@ const live = async (client: GoogleGenAI, model: string) => {
         audioChunks.push(inlineData);
       }
     }
-    
+
     if (audioChunks.length > 0) {
       const combinedBase64 = audioChunks.join("");
       const audioBuffer = Buffer.from(combinedBase64, "base64");
@@ -404,11 +389,11 @@ const live = async (client: GoogleGenAI, model: string) => {
       if (turn.text) {
         for (const part of turn.serverContent?.modelTurn?.parts || []) {
           if (part.text) {
-            console.debug('Received text: %s\n', part.text);
+            console.debug("Received text: %s\n", part.text);
           } else if (part.executableCode) {
-            console.debug('executableCode: %s\n', part.executableCode.code);
+            console.debug("executableCode: %s\n", part.executableCode.code);
           } else if (part.codeExecutionResult) {
-            console.debug('codeExecutionResult: %s\n', part.codeExecutionResult.output);
+            console.debug("codeExecutionResult: %s\n", part.codeExecutionResult.output);
           }
         }
       }
@@ -450,7 +435,7 @@ async function main() {
           },
         },
         // Ephemeral tokens only work on v1alpha for now.
-        httpOptions: {apiVersion: "v1alpha"},
+        httpOptions: { apiVersion: "v1alpha" },
       },
     });
     console.log("Token:", JSON.stringify(token));

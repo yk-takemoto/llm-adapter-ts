@@ -1,4 +1,4 @@
-import { LlmId, LlmAdapterInputParams, ChatCompletionsArgs, SpeechToTextArgs, TextToSpeechArgs } from "./llm_adapter_schemas";
+import { LlmId, LlmAdapterInputParams, ChatCompletionsArgs, SpeechToTextArgs, TextToSpeechArgs, EmbeddingArgs } from "./llm_adapter_schemas";
 type LlmAdapterHelperParams = {
     llmId: LlmId;
     buildClientInputParams?: LlmAdapterInputParams<any, Record<string, any>>;
@@ -17,6 +17,9 @@ declare const llmAdapterHelper: (helperParams: LlmAdapterHelperParams) => {
     textToSpeech: (params: LlmAdapterInputParams<TextToSpeechArgs>) => Promise<{
         content: Buffer<ArrayBuffer>;
         contentType: string;
+    }>;
+    embedding: (params: LlmAdapterInputParams<EmbeddingArgs>) => Promise<{
+        embedding: number[];
     }>;
 };
 export default llmAdapterHelper;

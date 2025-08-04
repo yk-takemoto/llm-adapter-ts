@@ -455,6 +455,43 @@ export declare const textToSpeechResultSchema: z.ZodObject<{
     contentType: string;
 }>;
 export type TextToSpeechResult = z.infer<typeof textToSpeechResultSchema>;
+export declare const embeddingOptionsSchema: z.ZodObject<{
+    dimensions: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodAny, z.objectOutputType<{
+    dimensions: z.ZodOptional<z.ZodNumber>;
+}, z.ZodAny, "strip">, z.objectInputType<{
+    dimensions: z.ZodOptional<z.ZodNumber>;
+}, z.ZodAny, "strip">>;
+export type EmbeddingOptions = z.infer<typeof embeddingOptionsSchema>;
+export declare const embeddingArgsSchema: z.ZodObject<{
+    text: z.ZodString;
+    options: z.ZodOptional<z.ZodObject<{
+        dimensions: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodAny, z.objectOutputType<{
+        dimensions: z.ZodOptional<z.ZodNumber>;
+    }, z.ZodAny, "strip">, z.objectInputType<{
+        dimensions: z.ZodOptional<z.ZodNumber>;
+    }, z.ZodAny, "strip">>>;
+}, "strip", z.ZodTypeAny, {
+    text: string;
+    options?: z.objectOutputType<{
+        dimensions: z.ZodOptional<z.ZodNumber>;
+    }, z.ZodAny, "strip"> | undefined;
+}, {
+    text: string;
+    options?: z.objectInputType<{
+        dimensions: z.ZodOptional<z.ZodNumber>;
+    }, z.ZodAny, "strip"> | undefined;
+}>;
+export type EmbeddingArgs = z.infer<typeof embeddingArgsSchema>;
+export declare const embeddingResultSchema: z.ZodObject<{
+    embedding: z.ZodArray<z.ZodNumber, "many">;
+}, "strip", z.ZodTypeAny, {
+    embedding: number[];
+}, {
+    embedding: number[];
+}>;
+export type EmbeddingResult = z.infer<typeof embeddingResultSchema>;
 export type ChatCompletionsAdapter = {
     chatCompletions: LlmAdapterAsyncFunction<LlmAdapterInputParams<ChatCompletionsArgs>, ChatCompletionsResult>;
 };
@@ -464,7 +501,10 @@ export type SpeechToTextAdapter = {
 export type TextToSpeechAdapter = {
     textToSpeech: LlmAdapterAsyncFunction<LlmAdapterInputParams<TextToSpeechArgs>, TextToSpeechResult>;
 };
-export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter>;
+export type EmbeddingAdapter = {
+    embedding: LlmAdapterAsyncFunction<LlmAdapterInputParams<EmbeddingArgs>, EmbeddingResult>;
+};
+export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter & EmbeddingAdapter>;
 export declare const llmIdSchema: z.ZodEnum<["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"]>;
 export type LlmId = z.infer<typeof llmIdSchema>;
 export type LlmAdapterBuilder<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = LlmId, ResultType = LlmAdapter> = {

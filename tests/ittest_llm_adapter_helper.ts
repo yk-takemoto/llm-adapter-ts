@@ -165,7 +165,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const testText = "これはOpenAIのembedding APIのテストです。";
-      
+
       const result = await helper.embedding({
         args: {
           text: testText,
@@ -186,7 +186,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "OpenAI" });
       const testText = "これはOpenAIのembedding APIのテストです。";
-      
+
       const result = await helper.embedding({
         args: {
           text: testText,
@@ -275,7 +275,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "AzureOpenAI" });
       const testText = "これはAzure OpenAIのembedding APIのテストです。";
-      
+
       const result = await helper.embedding({
         args: {
           text: testText,
@@ -296,7 +296,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "AzureOpenAI" });
       const testText = "これはAzure OpenAIのembedding APIのテストです。";
-      
+
       const result = await helper.embedding({
         args: {
           text: testText,
@@ -538,7 +538,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Google" });
       const testText = "これはGeminiのembedding APIのテストです。";
-      
+
       const result = await helper.embedding({
         args: {
           text: testText,
@@ -559,7 +559,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
 
       const helper = llmAdapterHelper({ llmId: "Google" });
       const testText = "これはGeminiのembedding APIのテストです。";
-      
+
       const result = await helper.embedding({
         args: {
           text: testText,
