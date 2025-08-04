@@ -280,7 +280,7 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
         contents: text,
         config: {
           ...(options?.dimensions ? { outputDimensionality: options.dimensions } : {}),
-        }
+        },
       };
       try {
         const geminiClient = geminiClientBuilder.build(buildClientInputParams || {});

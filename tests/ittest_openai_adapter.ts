@@ -247,7 +247,7 @@ describe("OpenAI API 統合テスト", function () {
 
       const openAIAdapter = openAIAdapterBuilder.build();
       const testText = "これはOpenAIのembedding APIのテストです。";
-      
+
       const result = await openAIAdapter.embedding!({
         args: {
           text: testText,
@@ -268,7 +268,7 @@ describe("OpenAI API 統合テスト", function () {
 
       const openAIAdapter = openAIAdapterBuilder.build();
       const testText = "これはOpenAIのembedding APIのテストです。";
-      
+
       const result = await openAIAdapter.embedding!({
         args: {
           text: testText,
@@ -529,7 +529,7 @@ describe("Azure OpenAI API 統合テスト", function () {
 
       const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
       const testText = "これはAzure OpenAIのembedding APIのテストです。";
-      
+
       const result = await openAIAdapter.embedding!({
         args: {
           text: testText,
@@ -550,7 +550,7 @@ describe("Azure OpenAI API 統合テスト", function () {
 
       const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
       const testText = "これはAzure OpenAIのembedding APIのテストです。";
-      
+
       const result = await openAIAdapter.embedding!({
         args: {
           text: testText,
