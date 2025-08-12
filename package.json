@@ -1,6 +1,6 @@
 {
   "name": "@yk-takemoto/llm-adapter",
-  "version": "0.1.0",
+  "version": "0.0.7",
   "description": "LLM adapter for TypeScript",
   "main": "lib/bundle.cjs.js",
   "module": "lib/bundle.esm.js",
