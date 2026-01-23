@@ -141,6 +141,24 @@ export const textToSpeechResultSchema = z.object({
 });
 export type TextToSpeechResult = z.infer<typeof textToSpeechResultSchema>;
 
+export const embeddingOptionsSchema = z
+  .object({
+    dimensions: z.number().optional(),
+  })
+  .catchall(z.any());
+export type EmbeddingOptions = z.infer<typeof embeddingOptionsSchema>;
+
+export const embeddingArgsSchema = z.object({
+  text: z.string(),
+  options: embeddingOptionsSchema.optional(),
+});
+export type EmbeddingArgs = z.infer<typeof embeddingArgsSchema>;
+
+export const embeddingResultSchema = z.object({
+  embedding: z.array(z.number()),
+});
+export type EmbeddingResult = z.infer<typeof embeddingResultSchema>;
+
 export type ChatCompletionsAdapter = {
   chatCompletions: LlmAdapterAsyncFunction<LlmAdapterInputParams<ChatCompletionsArgs>, ChatCompletionsResult>;
 };
@@ -153,9 +171,13 @@ export type TextToSpeechAdapter = {
   textToSpeech: LlmAdapterAsyncFunction<LlmAdapterInputParams<TextToSpeechArgs>, TextToSpeechResult>;
 };
 
-export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter>;
+export type EmbeddingAdapter = {
+  embedding: LlmAdapterAsyncFunction<LlmAdapterInputParams<EmbeddingArgs>, EmbeddingResult>;
+};
 
-export const llmIdSchema = z.enum(["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"]);
+export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter & EmbeddingAdapter>;
+
+export const llmIdSchema = z.enum(["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq", "AmazonBedrock"]);
 export type LlmId = z.infer<typeof llmIdSchema>;
 
 export type LlmAdapterBuilder<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = LlmId, ResultType = LlmAdapter> = {

@@ -241,6 +241,75 @@ describe("OpenAI API 統合テスト", function () {
     });
   });
 
+  describe("embedding インテグレーションテスト", () => {
+    it("テキストのembeddingが正しく処理されること（optionsなし）", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build();
+      const testText = "これはOpenAIのembedding APIのテストです。";
+
+      const result = await openAIAdapter.embedding!({
+        args: {
+          text: testText,
+          options: {},
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.embedding).to.be.an("array").and.to.have.length.greaterThan(0);
+      expect(result?.embedding[0]).to.be.a("number");
+
+      console.log(`Embedding次元数: ${result?.embedding.length}`);
+      console.log(`最初の5次元: ${result?.embedding.slice(0, 5)}`);
+    });
+
+    it("テキストのembeddingが正しく処理されること（optionsあり）", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build();
+      const testText = "これはOpenAIのembedding APIのテストです。";
+
+      const result = await openAIAdapter.embedding!({
+        args: {
+          text: testText,
+          options: {
+            dimensions: 512,
+          },
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.embedding).to.be.an("array").and.to.have.length(512);
+      expect(result?.embedding[0]).to.be.a("number");
+
+      console.log(`指定した次元数: 512, 実際の次元数: ${result?.embedding.length}`);
+    });
+
+    it("無効なモデル指定時にエラーが発生すること", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build();
+      const testText = "これはエラーテストです。";
+
+      try {
+        await openAIAdapter.embedding!({
+          args: {
+            text: testText,
+            options: {},
+          },
+          config: {
+            apiModelEmbedding: "invalid-model-name",
+          },
+        });
+        // エラーが発生しなかった場合はテスト失敗
+        expect.fail("エラーが発生するはずです");
+      } catch (error) {
+        expect(error).to.be.an("error");
+        console.log(`期待通りエラーが発生: ${(error as Error).message}`);
+      }
+    });
+  });
+
   after(() => {
     // テスト後のクリーンアップは必要に応じて実装
     // ここでは一時ファイルを残しておく（デバッグ用）
@@ -333,7 +402,7 @@ describe("Azure OpenAI API 統合テスト", function () {
         buildArgs: "AzureOpenAI",
         buildClientInputParams: {
           args: {
-            apiKey: process.env.OPENAI_API_KEY || "",
+            apiKey: process.env.AZURE_OPENAI_API_KEY || "",
             endpoint: process.env.AZURE_OPENAI_ENDPOINT || "",
             apiVersion: process.env.OPENAI_API_VERSION || "",
           },
@@ -451,6 +520,75 @@ describe("Azure OpenAI API 統合テスト", function () {
       const outputPath = path.join(testTmpDir, "test_output_aoai.mp3");
       fs.writeFileSync(outputPath, result?.content || Buffer.from([]));
       console.log(`生成された音声ファイル: ${outputPath}`);
+    });
+  });
+
+  describe("embedding インテグレーションテスト", () => {
+    it("テキストのembeddingが正しく処理されること（optionsなし）", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
+      const testText = "これはAzure OpenAIのembedding APIのテストです。";
+
+      const result = await openAIAdapter.embedding!({
+        args: {
+          text: testText,
+          options: {},
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.embedding).to.be.an("array").and.to.have.length.greaterThan(0);
+      expect(result?.embedding[0]).to.be.a("number");
+
+      console.log(`Embedding次元数: ${result?.embedding.length}`);
+      console.log(`最初の5次元: ${result?.embedding.slice(0, 5)}`);
+    });
+
+    it("テキストのembeddingが正しく処理されること（optionsあり）", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
+      const testText = "これはAzure OpenAIのembedding APIのテストです。";
+
+      const result = await openAIAdapter.embedding!({
+        args: {
+          text: testText,
+          options: {
+            dimensions: 512,
+          },
+        },
+      });
+
+      expect(result).to.not.be.null;
+      expect(result?.embedding).to.be.an("array").and.to.have.length(512);
+      expect(result?.embedding[0]).to.be.a("number");
+
+      console.log(`指定した次元数: 512, 実際の次元数: ${result?.embedding.length}`);
+    });
+
+    it("無効なデプロイメント指定時にエラーが発生すること", async function () {
+      if (!hasAllEnvVars) this.skip();
+
+      const openAIAdapter = openAIAdapterBuilder.build({ buildArgs: "AzureOpenAI" });
+      const testText = "これはエラーテストです。";
+
+      try {
+        await openAIAdapter.embedding!({
+          args: {
+            text: testText,
+            options: {},
+          },
+          config: {
+            apiModelEmbedding: "invalid-deployment-name",
+          },
+        });
+        // エラーが発生しなかった場合はテスト失敗
+        expect.fail("エラーが発生するはずです");
+      } catch (error) {
+        expect(error).to.be.an("error");
+        console.log(`期待通りエラーが発生: ${(error as Error).message}`);
+      }
     });
   });
 

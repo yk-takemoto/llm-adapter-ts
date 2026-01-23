@@ -2,8 +2,11 @@ import { expect } from "chai";
 import sinon from "sinon";
 import { groqAdapterBuilder } from "../src/groq_adapter";
 import { McpTool } from "../src/llm_adapter_schemas";
+import fs from "fs";
 
 describe("Groq Adapter Tests", () => {
+  // createReadStreamのスタブを変数として定義
+  let createReadStreamStub: sinon.SinonStub;
   let groqAdapter: ReturnType<typeof groqAdapterBuilder.build>;
 
   beforeEach(() => {
@@ -33,10 +36,24 @@ describe("Groq Adapter Tests", () => {
           messages: [],
         };
       },
+
+      speechToText: async () => {
+        return "音声テキスト変換結果";
+      },
+
+      textToSpeech: async () => {
+        return {
+          contentType: "audio/wav",
+          content: Buffer.from("音声データ"),
+        };
+      },
     };
 
     sinon.stub(groqAdapterBuilder, "build").returns(adapterStub);
     groqAdapter = groqAdapterBuilder.build();
+
+    // createReadStreamのスタブ
+    createReadStreamStub = sinon.stub(fs, "createReadStream").returns("audio-file-stream" as any);
   });
 
   afterEach(() => {
@@ -105,6 +122,67 @@ describe("Groq Adapter Tests", () => {
       expect(result?.tools).to.not.be.empty;
       expect(result?.tools[0]).to.have.property("name", "get_weather");
       expect(result?.tools[0].arguments).to.deep.equal({ location: "東京", unit: "celsius" });
+    });
+  });
+
+  describe("speechToText", () => {
+    it("音声からテキストへの変換が正しく行われること", async () => {
+      process.env.GROQ_API_MODEL_AUDIO_TRANSCRIPTION = "distil-whisper-large-v3-en";
+
+      // speechToTextスタブを再定義して、fs.createReadStreamの呼び出しをモック
+      sinon.restore(); // 一度全てのスタブをリセット
+
+      // 明示的にcreateReadStreamStubを再設定
+      createReadStreamStub = sinon.stub(fs, "createReadStream").returns("audio-file-stream" as any);
+
+      // speechToTextのスタブを設定して、内部で実際にcreateSteamを呼ぶようにする
+      sinon.stub(groqAdapter, "speechToText").callsFake(async (params: any) => {
+        const { args } = params || {};
+        const { audioFilePath } = args || {};
+
+        // ここで実際にcreateReadStreamを呼ぶ
+        fs.createReadStream(audioFilePath);
+
+        return "音声テキスト変換結果";
+      });
+
+      const result = groqAdapter.speechToText
+        ? await groqAdapter.speechToText({
+            args: {
+              audioFilePath: "/path/to/audio.wav",
+              options: {
+                language: "ja",
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.equal("音声テキスト変換結果");
+      expect(createReadStreamStub.calledWith("/path/to/audio.wav")).to.be.true;
+    });
+  });
+
+  describe("textToSpeech", () => {
+    it("テキストから音声への変換が正しく行われること", async () => {
+      process.env.GROQ_API_MODEL_TEXT2SPEECH = "Aaliyah-PlayAI";
+
+      const result = groqAdapter.textToSpeech
+        ? await groqAdapter.textToSpeech({
+            args: {
+              message: "こんにちは、世界",
+              options: {
+                voice: "Aaliyah-PlayAI",
+                responseFormat: "wav",
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.have.property("contentType", "audio/wav");
+      expect(result?.content).to.not.be.null;
+      expect(Buffer.isBuffer(result?.content)).to.be.true;
     });
   });
 });

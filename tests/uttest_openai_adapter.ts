@@ -49,6 +49,12 @@ describe("OpenAI Adapter Tests", () => {
           content: Buffer.from("音声データ"),
         };
       },
+
+      embedding: async () => {
+        return {
+          embedding: [0.1, 0.2, 0.3, 0.4, 0.5],
+        };
+      },
     };
 
     // buildメソッドをスタブ化して、スタブオブジェクトを返すようにする
@@ -188,6 +194,28 @@ describe("OpenAI Adapter Tests", () => {
       expect(result).to.have.property("contentType", "audio/mp3");
       expect(result?.content).to.not.be.null;
       expect(Buffer.isBuffer(result?.content)).to.be.true;
+    });
+  });
+
+  describe("embedding", () => {
+    it("テキストのembeddingが正しく処理されること", async () => {
+      process.env.OPENAI_API_MODEL_EMBEDDING = "text-embedding-3-small";
+
+      const result = openAIAdapter.embedding
+        ? await openAIAdapter.embedding({
+            args: {
+              text: "これはテストメッセージです",
+              options: {
+                dimensions: 1024,
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.have.property("embedding").that.is.an("array");
+      expect(result?.embedding).to.have.length.greaterThan(0);
+      expect(result?.embedding).to.deep.equal([0.1, 0.2, 0.3, 0.4, 0.5]);
     });
   });
 });

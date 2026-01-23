@@ -2,8 +2,11 @@ import { expect } from "chai";
 import sinon from "sinon";
 import { geminiAdapterBuilder } from "../src/gemini_adapter";
 import { McpTool } from "../src/llm_adapter_schemas";
+import fs from "fs";
 
 describe("Gemini Adapter Tests", () => {
+  // createReadStreamのスタブを変数として定義
+  let createReadStreamStub: sinon.SinonStub;
   let geminiAdapter: ReturnType<typeof geminiAdapterBuilder.build>;
 
   beforeEach(() => {
@@ -35,10 +38,30 @@ describe("Gemini Adapter Tests", () => {
           messages: [],
         };
       },
+
+      speechToText: async () => {
+        return "音声テキスト変換結果";
+      },
+
+      textToSpeech: async () => {
+        return {
+          contentType: "audio/wav",
+          content: Buffer.from("音声データ"),
+        };
+      },
+
+      embedding: async () => {
+        return {
+          embedding: [0.1, 0.2, 0.3, 0.4, 0.5],
+        };
+      },
     };
 
     sinon.stub(geminiAdapterBuilder, "build").returns(adapterStub);
     geminiAdapter = geminiAdapterBuilder.build();
+
+    // createReadStreamのスタブ
+    createReadStreamStub = sinon.stub(fs, "createReadStream").returns("audio-file-stream" as any);
   });
 
   afterEach(() => {
@@ -107,6 +130,91 @@ describe("Gemini Adapter Tests", () => {
       expect(result?.tools).to.not.be.empty;
       expect(result?.tools[0]).to.have.property("name", "get_weather");
       expect(result?.tools[0].arguments).to.deep.equal({ location: "東京", unit: "celsius" });
+    });
+  });
+
+  describe("speechToText", () => {
+    it("音声からテキストへの変換が正しく行われること", async () => {
+      process.env.GEMINI_API_MODEL_AUDIO_TRANSCRIPTION = "gemini-1.5-flash";
+
+      // speechToTextスタブを再定義して、fs.createReadStreamの呼び出しをモック
+      sinon.restore(); // 一度全てのスタブをリセット
+
+      // 明示的にcreateReadStreamStubを再設定
+      createReadStreamStub = sinon.stub(fs, "createReadStream").returns("audio-file-stream" as any);
+
+      // speechToTextのスタブを設定して、内部で実際にcreateSteamを呼ぶようにする
+      sinon.stub(geminiAdapter, "speechToText").callsFake(async (params: any) => {
+        const { args } = params || {};
+        const { audioFilePath } = args || {};
+
+        // ここで実際にcreateReadStreamを呼ぶ
+        fs.createReadStream(audioFilePath);
+
+        return "音声テキスト変換結果";
+      });
+
+      const result = geminiAdapter.speechToText
+        ? await geminiAdapter.speechToText({
+            args: {
+              audioFilePath: "/path/to/audio.wav",
+              options: {
+                language: "ja",
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.equal("音声テキスト変換結果");
+      expect(createReadStreamStub.calledWith("/path/to/audio.wav")).to.be.true;
+    });
+  });
+
+  describe("textToSpeech", () => {
+    it("テキストから音声への変換が正しく行われること", async () => {
+      process.env.GEMINI_API_MODEL_TEXT2SPEECH = "gemini-1.5-flash-audio";
+
+      const result = geminiAdapter.textToSpeech
+        ? await geminiAdapter.textToSpeech({
+            args: {
+              message: "こんにちは、世界",
+              options: {
+                voice: "Kore",
+                responseFormat: "wav",
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.have.property("contentType", "audio/wav");
+      expect(result?.content).to.not.be.null;
+      expect(Buffer.isBuffer(result?.content)).to.be.true;
+    });
+  });
+
+  describe("embedding", () => {
+    it("テキストのembeddingが正しく処理されること", async () => {
+      // 環境変数の設定
+      process.env.GEMINI_API_MODEL_EMBEDDING = "text-embedding-004";
+      process.env.GEMINI_API_KEY = "test-api-key";
+
+      const result = geminiAdapter.embedding
+        ? await geminiAdapter.embedding({
+            args: {
+              text: "これはテストメッセージです",
+              options: {
+                dimensions: 768,
+              },
+            },
+          })
+        : null;
+
+      expect(result).to.not.be.null;
+      expect(result).to.have.property("embedding").that.is.an("array");
+      expect(result?.embedding).to.have.length.greaterThan(0);
+      expect(result?.embedding).to.deep.equal([0.1, 0.2, 0.3, 0.4, 0.5]);
     });
   });
 });

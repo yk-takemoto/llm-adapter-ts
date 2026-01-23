@@ -10,8 +10,18 @@ import {
   GenerationConfig,
   Schema,
   Part,
+  createUserContent,
+  createPartFromUri,
 } from "@google/genai";
-import { McpTool, LlmAdapterBuilder, LlmClientBuilder, chatCompletionsArgsSchema } from "@/llm_adapter_schemas";
+import {
+  McpTool,
+  LlmAdapterBuilder,
+  LlmClientBuilder,
+  chatCompletionsArgsSchema,
+  embeddingArgsSchema,
+  textToSpeechArgsSchema,
+  speechToTextArgsSchema,
+} from "@/llm_adapter_schemas";
 
 // A function to delete parameters such as additionalProperties because the GeminiAPI tool schema does not support jsonSchema7.
 const cleanJsonSchema = (schema: Record<string, any>): Record<string, any> => {
@@ -91,6 +101,31 @@ const convertMessagesForHistory = (messages: Content[]): Content[] => {
     role: message.role,
     parts: message.parts?.map((part) => (part.inlineData?.data ? ({ ...part, inlineData: { ...part.inlineData, data: "ommitted" } } as Part) : part)),
   }));
+};
+
+const createWavHeader = (dataLength: number, sampleRate: number, channels: number, bitsPerSample: number): Buffer => {
+  const header = Buffer.alloc(44);
+
+  // RIFF header
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + dataLength, 4);
+  header.write("WAVE", 8);
+
+  // fmt chunk
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE((sampleRate * channels * bitsPerSample) / 8, 28);
+  header.writeUInt16LE((channels * bitsPerSample) / 8, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+
+  // data chunk
+  header.write("data", 36);
+  header.writeUInt32LE(dataLength, 40);
+
+  return header;
 };
 
 const geminiClientBuilderArgsSchema = z
@@ -261,6 +296,125 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
       // debug
       console.log("[chatCompletions] response: ", response);
       return response;
+    },
+    speechToText: async ({
+      args,
+      argsSchema = speechToTextArgsSchema,
+      config = {
+        apiModelAudioTranscription: process.env.GEMINI_API_MODEL_AUDIO_TRANSCRIPTION,
+      },
+      configSchema = z.object({
+        apiModelAudioTranscription: z.string().min(1, "GEMINI_API_MODEL_AUDIO_TRANSCRIPTION is required"),
+      }),
+    } = {}) => {
+      const { audioFilePath, options } = argsSchema.parse(args);
+      const { apiModelAudioTranscription } = configSchema.parse(config);
+
+      try {
+        const geminiClient = geminiClientBuilder.build(buildClientInputParams || {});
+        const audioFile = await geminiClient.files.upload({
+          file: audioFilePath,
+        });
+        if (!audioFile?.uri || !audioFile?.mimeType) {
+          throw new Error("Audio file upload failed or returned invalid data.");
+        }
+        const additionalPrompt = options?.language ? ` The language code of the audio is ${options.language}.` : "";
+        const prompt = "Generate a transcript of the speech." + additionalPrompt;
+        const response = await geminiClient.models.generateContent({
+          model: apiModelAudioTranscription,
+          contents: createUserContent([createPartFromUri(audioFile.uri, audioFile.mimeType), prompt]),
+        });
+
+        return response.text || "";
+      } catch (error) {
+        // debug
+        console.log("[speechToText] Error: ", error);
+        throw error;
+      }
+    },
+    textToSpeech: async ({
+      args,
+      argsSchema = textToSpeechArgsSchema,
+      config = {
+        apiModelText2Speech: process.env.GEMINI_API_MODEL_TEXT2SPEECH,
+      },
+      configSchema = z.object({
+        apiModelText2Speech: z.string().min(1, "GEMINI_API_MODEL_TEXT2SPEECH is required"),
+      }),
+    } = {}) => {
+      const { message, options } = argsSchema.parse(args);
+      const { apiModelText2Speech } = configSchema.parse(config);
+
+      const speechOtions = {
+        model: apiModelText2Speech as string,
+        contents: [{ parts: [{ text: message }] }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: options?.voice || "Kore" },
+            },
+          },
+        },
+      };
+      try {
+        const geminiClient = geminiClientBuilder.build(buildClientInputParams || {});
+        const response = await geminiClient.models.generateContent(speechOtions);
+        const data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!data) {
+          throw new Error("No audio data returned from Gemini API.");
+        }
+
+        const result: { contentType: string; content: Buffer<ArrayBuffer> } = {
+          contentType: response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || "application/octet-stream",
+          content: Buffer.from(data, "base64url"),
+        };
+        if (options?.responseFormat === "wav") {
+          const audioBuffer = Buffer.from(data, "base64url");
+          const wavHeader = createWavHeader(audioBuffer.length, 24000, 1, 16);
+          const wavBuffer = Buffer.concat([wavHeader, audioBuffer]);
+          result.contentType = "audio/wav";
+          result.content = wavBuffer;
+        }
+
+        return result;
+      } catch (error) {
+        // debug
+        console.log("[textToSpeech] Error: ", error);
+        throw error;
+      }
+    },
+    embedding: async ({
+      args,
+      argsSchema = embeddingArgsSchema,
+      config = {
+        apiModelEmbedding: process.env.GEMINI_API_MODEL_EMBEDDING,
+      },
+      configSchema = z.object({
+        apiModelEmbedding: z.string().min(1, "GEMINI_API_MODEL_EMBEDDING is required"),
+      }),
+    } = {}) => {
+      const { text, options } = argsSchema.parse(args);
+      const { apiModelEmbedding } = configSchema.parse(config);
+
+      const embeddingOtions = {
+        model: apiModelEmbedding as string,
+        contents: text,
+        config: {
+          ...(options?.dimensions ? { outputDimensionality: options.dimensions } : {}),
+        },
+      };
+      try {
+        const geminiClient = geminiClientBuilder.build(buildClientInputParams || {});
+        const response = await geminiClient.models.embedContent(embeddingOtions);
+        return {
+          embedding: response.embeddings ? response.embeddings[0].values || [] : [],
+        };
+      } catch (error) {
+        // debug
+        console.log("[embedding] Error: ", error);
+        throw error;
+      }
     },
   }),
 };

@@ -1,6 +1,7 @@
 import { Groq } from "groq-sdk";
+import { createReadStream } from "fs";
 import { z } from "zod";
-import { McpTool, LlmAdapterBuilder, LlmClientBuilder, chatCompletionsArgsSchema } from "@/llm_adapter_schemas";
+import { McpTool, LlmAdapterBuilder, LlmClientBuilder, chatCompletionsArgsSchema, speechToTextArgsSchema, textToSpeechArgsSchema } from "@/llm_adapter_schemas";
 
 const convertTools = (tools: McpTool[]): Groq.Chat.ChatCompletionTool[] => {
   return tools.map((tool) => {
@@ -118,7 +119,7 @@ export const groqAdapterBuilder: LlmAdapterBuilder<GroqClientBuilderArgs> = {
             ? {
                 response_format: {
                   type: "json_object",
-                } as Groq.Chat.CompletionCreateParams.ResponseFormat,
+                } as Groq.Chat.CompletionCreateParams.ResponseFormatJsonObject,
               }
             : {};
       }
@@ -172,5 +173,98 @@ export const groqAdapterBuilder: LlmAdapterBuilder<GroqClientBuilderArgs> = {
       console.log("[chatCompletions] response: ", response);
       return response;
     },
+    speechToText: async ({
+      args,
+      argsSchema = speechToTextArgsSchema,
+      config = {
+        apiModelAudioTranscription: process.env.GROQ_API_MODEL_AUDIO_TRANSCRIPTION,
+      },
+      configSchema = z.object({
+        apiModelAudioTranscription: z.string().min(1, "GROQ_API_MODEL_AUDIO_TRANSCRIPTION is required"),
+      }),
+    } = {}) => {
+      const { audioFilePath, options } = argsSchema.parse(args);
+      const { apiModelAudioTranscription } = configSchema.parse(config);
+
+      const speechOtions = {
+        file: createReadStream(audioFilePath),
+        model: apiModelAudioTranscription,
+        language: options?.language || "ja",
+      };
+      try {
+        const groqClient = groqClientBuilder.build(buildClientInputParams || {});
+        const response = await groqClient.audio.transcriptions.create(speechOtions);
+        return response.text;
+      } catch (error) {
+        // debug
+        console.log("[speechToText] Error: ", error);
+        throw error;
+      }
+    },
+    textToSpeech: async ({
+      args,
+      argsSchema = textToSpeechArgsSchema,
+      config = {
+        apiModelText2Speech: process.env.GROQ_API_MODEL_TEXT2SPEECH,
+      },
+      configSchema = z.object({
+        apiModelText2Speech: z.string().min(1, "GROQ_API_MODEL_TEXT2SPEECH is required"),
+      }),
+    } = {}) => {
+      const { message, options } = argsSchema.parse(args);
+      const { apiModelText2Speech } = configSchema.parse(config);
+
+      const speechOtions = {
+        model: apiModelText2Speech as string,
+        input: message,
+        voice: options?.voice || "autumn",
+        response_format: options?.responseFormat || "wav",
+      };
+      try {
+        const groqClient = groqClientBuilder.build(buildClientInputParams || {});
+        const response = await groqClient.audio.speech.create(speechOtions);
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
+        const arrayBuffer = (await response.arrayBuffer()) as ArrayBuffer;
+        return {
+          contentType: contentType,
+          content: Buffer.from(arrayBuffer) as Buffer<ArrayBuffer>,
+        };
+      } catch (error) {
+        // debug
+        console.log("[textToSpeech] Error: ", error);
+        throw error;
+      }
+    },
+    // embedding: async ({
+    //   args,
+    //   argsSchema = embeddingArgsSchema,
+    //   config = {
+    //     apiModelEmbedding: process.env.GROQ_API_MODEL_EMBEDDING,
+    //   },
+    //   configSchema = z.object({
+    //     apiModelEmbedding: z.string().min(1, "GROQ_API_MODEL_EMBEDDING is required"),
+    //   }),
+    // } = {}) => {
+    //   const { text, options } = argsSchema.parse(args);
+    //   const { apiModelEmbedding } = configSchema.parse(config);
+
+    //   const embeddingOtions = {
+    //     model: apiModelEmbedding as string,
+    //     input: text,
+    //     ...options,
+    //   };
+    //   try {
+    //     const groqClient = groqClientBuilder.build(buildClientInputParams || {});
+    //     const response = await groqClient.embeddings.create(embeddingOtions);
+    //     return {
+    //       // TODO if type of string, convert to array
+    //       embedding: typeof response.data[0].embedding === "string" ? [] : response.data[0].embedding,
+    //     };
+    //   } catch (error) {
+    //     // debug
+    //     console.log("[embedding] Error: ", error);
+    //     throw error;
+    //   }
+    // },
   }),
 };

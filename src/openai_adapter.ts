@@ -9,6 +9,7 @@ import {
   chatCompletionsArgsSchema,
   speechToTextArgsSchema,
   textToSpeechArgsSchema,
+  embeddingArgsSchema,
 } from "@/llm_adapter_schemas";
 
 const addAdditionalPropertiesElementToObjectType = (schema: any, bool: boolean = false) => {
@@ -191,7 +192,7 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
       const chatOtions = {
         model: apiModelChat,
         messages: updatedMessages,
-        max_tokens: options.toolOption.maxTokens || 1028,
+        max_completion_tokens: options.toolOption.maxTokens || 1028,
         temperature: options.toolOption.temperature ?? 0.7,
         ...toolsOption,
         ...resFormatOption,
@@ -216,8 +217,8 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
               ? choice.message.tool_calls?.map((tool_call) => {
                   return {
                     id: tool_call.id,
-                    name: tool_call.function.name,
-                    arguments: JSON.parse(tool_call.function.arguments) as Record<string, any>,
+                    name: tool_call.type === "function" ? tool_call.function.name : "",
+                    arguments: JSON.parse(tool_call.type === "function" ? tool_call.function.arguments : "{}"),
                   };
                 }) || []
               : [];
@@ -292,14 +293,45 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
         const openaiClient = getClient(llmId, buildClientInputParams);
         const response = await openaiClient.audio.speech.create(speechOtions);
         const contentType = response.headers.get("content-type") || "application/octet-stream";
-        const arrayBuffer = await response.arrayBuffer();
+        const arrayBuffer = (await response.arrayBuffer()) as ArrayBuffer;
         return {
           contentType: contentType,
-          content: Buffer.from(arrayBuffer),
+          content: Buffer.from(arrayBuffer) as Buffer<ArrayBuffer>,
         };
       } catch (error) {
         // debug
         console.log("[textToSpeech] Error: ", error);
+        throw error;
+      }
+    },
+    embedding: async ({
+      args,
+      argsSchema = embeddingArgsSchema,
+      config = {
+        apiModelEmbedding: buildArgs === "AzureOpenAI" ? process.env.AZURE_OPENAI_API_DEPLOYMENT_EMBEDDING : process.env.OPENAI_API_MODEL_EMBEDDING,
+      },
+      configSchema = z.object({
+        apiModelEmbedding: z.string().min(1, "OPENAI_API_MODEL_EMBEDDING or AZURE_OPENAI_API_DEPLOYMENT_EMBEDDING is required"),
+      }),
+    } = {}) => {
+      const llmId = buildArgsSchema.parse(buildArgs);
+      const { text, options } = argsSchema.parse(args);
+      const { apiModelEmbedding } = configSchema.parse(config);
+
+      const embeddingOtions = {
+        model: apiModelEmbedding as string,
+        input: text,
+        ...options,
+      };
+      try {
+        const openaiClient = getClient(llmId, buildClientInputParams);
+        const response = await openaiClient.embeddings.create(embeddingOtions);
+        return {
+          embedding: response.data[0].embedding,
+        };
+      } catch (error) {
+        // debug
+        console.log("[embedding] Error: ", error);
         throw error;
       }
     },
