@@ -685,7 +685,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
           args: {
             message: "This is a test for the Groq helper.",
             options: {
-              voice: "Aaliyah-PlayAI",
+              voice: "autumn",
               responseFormat: "wav",
             },
           },
@@ -725,7 +725,7 @@ describe("LlmAdapterHelper 統合テスト", function () {
         args: {
           message: "This is a Groq test for llmAdapterHelper.",
           options: {
-            voice: "Aaliyah-PlayAI",
+            voice: "autumn",
             responseFormat: "wav",
           },
         },

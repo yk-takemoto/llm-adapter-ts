@@ -217,17 +217,17 @@ export const groqAdapterBuilder: LlmAdapterBuilder<GroqClientBuilderArgs> = {
       const speechOtions = {
         model: apiModelText2Speech as string,
         input: message,
-        voice: options?.voice || "Aaliyah-PlayAI",
+        voice: options?.voice || "autumn",
         response_format: options?.responseFormat || "wav",
       };
       try {
         const groqClient = groqClientBuilder.build(buildClientInputParams || {});
         const response = await groqClient.audio.speech.create(speechOtions);
         const contentType = response.headers.get("content-type") || "application/octet-stream";
-        const arrayBuffer = await response.arrayBuffer();
+        const arrayBuffer = (await response.arrayBuffer()) as ArrayBuffer;
         return {
           contentType: contentType,
-          content: Buffer.from(arrayBuffer),
+          content: Buffer.from(arrayBuffer) as Buffer<ArrayBuffer>,
         };
       } catch (error) {
         // debug
