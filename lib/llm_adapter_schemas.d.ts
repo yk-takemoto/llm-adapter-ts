@@ -505,7 +505,7 @@ export type EmbeddingAdapter = {
     embedding: LlmAdapterAsyncFunction<LlmAdapterInputParams<EmbeddingArgs>, EmbeddingResult>;
 };
 export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter & EmbeddingAdapter>;
-export declare const llmIdSchema: z.ZodEnum<["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"]>;
+export declare const llmIdSchema: z.ZodEnum<["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq", "AmazonBedrock"]>;
 export type LlmId = z.infer<typeof llmIdSchema>;
 export type LlmAdapterBuilder<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = LlmId, ResultType = LlmAdapter> = {
     build: LlmAdapterFunction<LlmAdapterBuilderInputParams<ClientBuildArgsType, AdapterBuildArgsType>, ResultType>;

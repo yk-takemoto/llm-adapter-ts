@@ -2,6 +2,7 @@ import { openAIAdapterBuilder } from "@/openai_adapter";
 import { anthropicAdapterBuilder } from "@/anthropic_adapter";
 import { geminiAdapterBuilder } from "@/gemini_adapter";
 import { groqAdapterBuilder } from "@/groq_adapter";
+import { amazonBedrockAdapterBuilder } from "@/amazonbedrock_adapter";
 import {
   LlmId,
   LlmAdapterInputParams,
@@ -26,6 +27,7 @@ const getAdapter = (params: LlmAdapterHelperParams): LlmAdapter => {
     Anthropic: anthropicAdapterBuilder,
     Google: geminiAdapterBuilder,
     Groq: groqAdapterBuilder,
+    AmazonBedrock: amazonBedrockAdapterBuilder,
   };
 
   const adapter = llmAdapterMap[params.llmId].build({ buildArgs: params.llmId, buildClientInputParams: params.buildClientInputParams });

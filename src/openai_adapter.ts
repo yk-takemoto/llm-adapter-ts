@@ -192,7 +192,7 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
       const chatOtions = {
         model: apiModelChat,
         messages: updatedMessages,
-        max_tokens: options.toolOption.maxTokens || 1028,
+        max_completion_tokens: options.toolOption.maxTokens || 1028,
         temperature: options.toolOption.temperature ?? 0.7,
         ...toolsOption,
         ...resFormatOption,
@@ -217,8 +217,8 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
               ? choice.message.tool_calls?.map((tool_call) => {
                   return {
                     id: tool_call.id,
-                    name: tool_call.function.name,
-                    arguments: JSON.parse(tool_call.function.arguments) as Record<string, any>,
+                    name: tool_call.type === "function" ? tool_call.function.name : "",
+                    arguments: JSON.parse(tool_call.type === "function" ? tool_call.function.arguments : "{}"),
                   };
                 }) || []
               : [];
@@ -293,10 +293,10 @@ export const openAIAdapterBuilder: LlmAdapterBuilder<OpenAIClientBuilderArgs | A
         const openaiClient = getClient(llmId, buildClientInputParams);
         const response = await openaiClient.audio.speech.create(speechOtions);
         const contentType = response.headers.get("content-type") || "application/octet-stream";
-        const arrayBuffer = await response.arrayBuffer();
+        const arrayBuffer = (await response.arrayBuffer()) as ArrayBuffer;
         return {
           contentType: contentType,
-          content: Buffer.from(arrayBuffer),
+          content: Buffer.from(arrayBuffer) as Buffer<ArrayBuffer>,
         };
       } catch (error) {
         // debug

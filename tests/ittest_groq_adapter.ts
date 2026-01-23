@@ -167,7 +167,7 @@ describe("Groq API 統合テスト", function () {
           args: {
             message: "This is a test of Groq text to speech.",
             options: {
-              voice: "Aaliyah-PlayAI",
+              voice: "autumn",
               responseFormat: "wav",
             },
           },
@@ -217,7 +217,7 @@ describe("Groq API 統合テスト", function () {
         args: {
           message: testMessage,
           options: {
-            voice: "Aaliyah-PlayAI",
+            voice: "autumn",
             responseFormat: "wav",
           },
         },

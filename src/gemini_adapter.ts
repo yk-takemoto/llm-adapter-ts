@@ -365,7 +365,7 @@ export const geminiAdapterBuilder: LlmAdapterBuilder<GeminiClientBuilderArgs> = 
           throw new Error("No audio data returned from Gemini API.");
         }
 
-        const result: { contentType: string; content: Buffer } = {
+        const result: { contentType: string; content: Buffer<ArrayBuffer> } = {
           contentType: response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || "application/octet-stream",
           content: Buffer.from(data, "base64url"),
         };

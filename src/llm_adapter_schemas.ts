@@ -177,7 +177,7 @@ export type EmbeddingAdapter = {
 
 export type LlmAdapter = ChatCompletionsAdapter & Partial<SpeechToTextAdapter & TextToSpeechAdapter & EmbeddingAdapter>;
 
-export const llmIdSchema = z.enum(["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq"]);
+export const llmIdSchema = z.enum(["OpenAI", "AzureOpenAI", "Anthropic", "Google", "Groq", "AmazonBedrock"]);
 export type LlmId = z.infer<typeof llmIdSchema>;
 
 export type LlmAdapterBuilder<ClientBuildArgsType = GeneralArguments, AdapterBuildArgsType = LlmId, ResultType = LlmAdapter> = {

@@ -6,6 +6,7 @@ const external = [
   "fs",
   "zod",
   "@anthropic-ai/sdk",
+  "@aws-sdk/client-bedrock-runtime",
   "@google/genai",
   "groq-sdk",
   "openai"
@@ -15,6 +16,7 @@ const globals = {
   "fs": "fs",
   "zod": "zod",
   "@anthropic-ai/sdk": "Anthropic",
+  "@aws-sdk/client-bedrock-runtime": "clientBedrockRuntime",
   "@google/genai": "GoogleGenAI",
   "groq-sdk": "GroqSDK",
   "openai": "OpenAI"
